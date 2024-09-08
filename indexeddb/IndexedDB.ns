@@ -1,0 +1,92 @@
+Newspeak3
+'Root'
+class IndexedDB usingPlatform: platform onSubject: subject <Subject> = (
+	|
+    (* Imports *)
+    public Map = platform collections Map.
+    private Subject = platform Subject.
+	js = platform js global.
+	JSObject = js at: 'Object'.
+    
+    (* Model slots *)
+    dbName <String>
+    dbVersion <Integer> 
+    subject <Subject> = subject.
+    db <Alien>
+ 	|
+    subject openDB.
+) (
+class IDBRequest new: req = (
+	| request <Alien> = req. |
+    request addEventListener: 'success' with: [ :e | onSuccess: e ].
+    request addEventListener: 'error' with: [ :e | onError: e ].
+    request addEventListener: 'upgradeneeded' with: [ :e | onUpgrade: e ].
+) (
+onError: e = (
+	idb signalError: e.
+)
+onSuccess: event <Alien> = (
+	'Request open succeeded' out.
+	db:: (event at: #target) at: #result.
+    complete.
+)
+complete = (
+    request removeEventListener: 'success'.
+    request removeEventListener: 'error'.
+    request removeEventListener: 'upgradeneeded'.
+)
+onUpgrade: event = (
+	'IndexedDB upgrade needed fired' out.
+	db isNil ifTrue: [ db:: (event at: #target) at: #result ].
+    (* Create/update datastores *)
+    subject upgradeDatabase: event.
+)
+) : (
+)
+class IDBStore named: n <String> store: s <Alien> = (
+	|
+	storeName = n.
+    store = s.
+	|
+) (
+) : (
+)
+class IDBObject = (
+	|
+	uuid_slot
+    jdobject = JSObject new.
+	|
+) (
+public uuid = (
+	uuid_slot isNil ifTrue: [ uuid_slot:: (js at: #crypto) randomUUID ].
+    ^uuid_slot
+)
+public save = ( | om = ObjectMirror on: self. cm = om classMirror. |
+	cm slots do: [ :s | jsobject at: s name put: s reflectee ].
+    store save: jsobject.
+)
+) : (
+)
+class IDBSubject onModel: m = Subject onModel: m (
+	|
+    stores = List new.
+    |
+) (
+save = (
+)
+openDB = (| mm = ObjectMirror reflecting: model. km = mm reflectee class. |
+	dbName: km className.
+    dbVersion: model version.
+    open: dbName version: dbVersion
+)
+upgradeDatabase: e <Alien[Event]> = (| mm = ObjectMirror reflecting: model. km = mm reflectee class. |
+	'subject upgrade database triggered' out
+    
+)
+) : (
+)
+public open: dbName <String> version: v <Integer> = (
+   ^IDBRequest new: ((js at: 'indexedDB') open: dbName version: dbVersion).
+)
+) : (
+)

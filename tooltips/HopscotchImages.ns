@@ -1,0 +1,68 @@
+class HopscotchImages packageUsing: manifest = (
+	|
+	public accept16px = manifest accept16px.
+	public addImage = manifest hsAddImage.
+    public ampleforthDocument = manifest ampleforthDocument.
+	public backImage = manifest hsBackImage.
+	public cancel16px = manifest cancel16px.
+	public classIcon = manifest languageNewspeak3.
+	public classPresenterIcon = manifest classPresenterImage.
+	public classUnknownIcon = manifest classUnknownImage.
+	public clearImage = manifest clearImage.
+	public collapseImage = manifest hsCollapseImage.
+	public disclosureClosedImage = manifest disclosureClosedImage.
+	public disclosureOpenImage = manifest disclosureOpenImage.
+	public downloadImage = manifest downloadImage.
+	public dropDownImage = manifest hsDropdownImage.
+	public expandImage = manifest hsExpandImage.
+	public findImage = manifest findImage.
+	public forwardImage = manifest hsForwardImage.
+	public helpImage = manifest helpImage.
+	public historyImage = manifest hsHistoryImage.
+	public homeImage = manifest hsHomeImage.
+	public itemReferencesImage = manifest itemReferencesImage.
+	public newImage = manifest hsNewImage.
+        public peekingeye1610 = manifest peekingeye1610.
+	public privateAccessImage = manifest privateImage.
+	public protectedAccessImage = manifest protectedImage.
+	public publicAccessImage = manifest publicImage.
+	public refreshImage = manifest hsRefreshImage.
+        public saveImage = manifest saveImage.
+     private toolTips_slot = nil.
+|) (
+public toolTips = (
+	toolTips_slot ifNil: [
+		toolTips_slot = Map new
+			at: accept16px put: 'Accept changes';
+		  at: addImage put: 'Add new';
+	    at: ampleforthDocument put: 'ampleforth Document';
+		  at: backImage put: 'Go back';
+		  at: cancel16px put: 'Cancel changes';
+		  at: classIcon put: 'Class';
+		  at: classPresenterIcon put: 'Class presenter';
+		  at: classUnknownIcon put: 'Unknown class';
+		  at: clearImage put: 'Clear';
+		  at: collapseImage put: 'hsCollapse';
+		  at: disclosureClosedImage put: 'Close disclosure';
+		  at: disclosureOpenImage put: 'Open disclosure';
+		  at: downloadImage put: 'Download';
+		  at: dropDownImage put: 'hsDropdown';
+		  at: expandImage put: 'hsExpand';
+		  at: findImage put: 'Find';
+		  at: forwardImage put: 'hsForward';
+		  at: helpImage put: 'Help';
+		  at: historyImage put: 'hsHistory';
+		  at: homeImage put: 'Go home';
+		  at: itemReferencesImage put: 'References';
+		  at: newImage put: 'hsNew';
+	    at: peekingeye1610 put: 'Big brother is watching you!';
+		  at: privateAccessImage put: 'Private';
+		  at: protectedAccessImage put: 'Protected';
+		  at: publicAccessImage put: 'Public';
+		  at: refreshImage put: 'hsRefresh';
+	    at: saveImage put: 'Save'.
+	].
+	^toolTips_slot
+)
+) : (
+)
