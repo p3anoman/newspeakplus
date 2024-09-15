@@ -1,0 +1,360 @@
+Newspeak3
+'Root'
+class BigBrotherTrust usingPlatform: p = (
+|
+	private List = p collections List.
+    public js = p js.
+    private Date = js global at: 'Date'.
+    private Color = p graphics Color.
+    private Gradient = p hopscotch Gradient.
+	private Presenter = p hopscotch core Presenter.
+
+	private database = IndexedDB usingPlatform: p.
+    private IDBObject = database IDBObject.
+    private IDBSubject = p hopscotch core Subject mixinApply: database IDBSubject.
+	
+    public version = 5.
+	public transactions = List new.
+|
+) (
+public class BankTransaction amount: a onDate: d <Integer> formatted: s <String> = IDBObject (
+	|
+    amt = a.
+    txDate = d.
+    |
+) (
+class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
+		) (
+isMyKind: p <Presenter> ^ <Boolean> = (
+		  ^p isKindOfBankTransactionPresenter
+		)
+isKindOfBankTransactionPresenter = (
+			^true
+		)
+public definition ^ <Fragment> = (
+			^row: {  label: subject transactionDate. blank: 100 . txLabel. txAmount. }
+		)
+txLabel = ( | txt = subject amount < 0 ifTrue: [ 'Withdrawal:' ] ifFalse: [ 'Deposit:' ]. |
+	^column: { label: txt. }
+)
+txAmount = (
+	^column: { label: subject amount }
+)
+) : (
+)
+public class BankTransactionSubject onModel: t <BankTransaction> = Subject onModel: t (
+		) (
+public createPresenter = (
+			^BankTransactionPresenter onSubject: self
+		)
+public transactionDate = (
+			^model transactionDate
+		)
+public amount = (
+			^model amount
+		)
+isKindOfBankTransactionSubject = (
+	^true
+)
+isMyKind: s = (
+	^s isKindOfBankTransactionSubject
+)
+) : (
+)
+public amount = (
+			^amt
+		)
+public txSubject = (
+	^BankTransactionSubject onModel: self
+)
+public transactionDate = (
+			^txDate toDateString
+		)
+) : (
+public keyPath = (
+	^'uuid'
+)
+)
+public class BankAccountSubject onModel: b <BigBrotherTrust> = IDBSubject onModel: b (
+	| public transactions = List new. |
+) (
+withdrawals = (
+		^txSubjets select: [ :t | t amount < 0 ]
+	)
+public createPresenter = (
+		^BankAccountPresenter onSubject: self
+	)
+deposits = (
+		^model transactions select: [ :t | t amount > 0 ]
+	)
+public balance = (
+		^model balance
+	)
+window = (
+	^model window
+)
+public loadTx = (| tx nocors |
+	nocors: (js global at: 'Object') new.
+    nocors at: 'mode' put: 'no-cors'.
+	tx:: (js global fetch: 'http://localhost:8077/transactions' with: nocors)
+    		then: [ :r | r json then: [ :data | data ] ].
+    ^tx
+)
+transact: amt = (| b s d |
+		d:: Date now.
+		s:: (Date new: d) toDateString.
+		b:: BankTransaction amount: amt onDate: d formatted: s.
+        save: b.
+		model transact: b.
+)
+public deposit: amt = ( 
+	transact: amt.
+)
+public withdraw: amt = (
+	transact: (amt * -1).
+)
+public transactionSubjects = (
+	^transactions
+)
+) : (
+)
+class BankAccountPresenter onSubject: s <BankAccountSubject> = Presenter onSubject: s (|
+	stFlag = false.
+|) (
+isKindOfBankAccountPresenter = (
+			^true
+		)
+isMyKind: p <Presenter> ^ <Boolean> = (
+		  ^p isKindOfBankAccountPresenter
+		)
+transactionList = (
+			^column:  transactionPresenters.
+		)
+computeDigits: ds = (
+| s ::= 0. |
+	ds do: [:d | s:: (10 * s) + (d - 48)].
+	^s
+)
+newDepositInput ^ <Fragment> = (
+  | cm = codeMirror: ''. |
+  cm acceptResponse: [:ed |
+	updateGUI: [
+		subject deposit: (computeDigits: ed textBeingAccepted).
+		ed text: ''.
+		ed leaveEditState.
+		]
+	].
+  ^cm
+)
+newWithdrawalInput ^ <Fragment> = (
+  | cm = codeMirror: ''. |
+  cm acceptResponse: [:ed |
+	updateGUI: [
+		subject withdraw: (computeDigits: ed textBeingAccepted).
+		ed text: ''.
+		ed leaveEditState.
+		]
+	].
+  ^cm
+)
+minorHeadingColor = (
+	^Gradient from: Color gray to: Color white.
+)
+loadTx = (
+	^subject loadTx
+)
+test = (
+	^button: 'Tx' action: [ updateGUI: [ loadTx ]].
+)
+transactionsHeader = ( | l = label: 'Transactions'. |
+	^row: { l }.
+)
+minorHeadingBlock: body = (
+	^(padded: body with: {50. 25. 25. 25.})
+	color: minorHeadingColor.
+)
+majorHeadingBlock: body = (
+	^(padded: body with: {50. 25. 25. 25.}) color: majorHeadingColor.
+)
+majorHeadingColor = (
+	^Gradient from: Color yellow to: Color gray.
+)
+logo = (| b = label: 'Big Brother Trust'. |
+	b visual at: 'style' put: 'font-family: sans-serif; font-size: 200%; text-align: center'.
+	^row: { b }
+)
+header = ( | l = label: 'Your Money'. |
+	l visual at: 'style' put: 'font-size: 200%'.
+		^row: {  l. }
+		)
+public definition ^<Fragment> = (
+	^column: {
+    	logoBlock: logo.
+		majorHeadingBlock: header.
+		minorHeadingBlock: currentBalance.
+		transactionsHeader.
+		transactionList.
+		row: { label: 'Deposit:' }.
+        row: { newDepositInput. }.
+		row: { label: 'Withdrawal:' }.
+		row: { newWithdrawalInput. }.
+        row: { test }
+	}
+)
+logoBlock: body = (
+	^(padded: body with: { 100. 75. 100. 75. }) color: logoColor.
+)
+logoColor = (
+	^Gradient from: Color red to: Color yellow
+)
+currentBalance ^<Fragment> = (| l = label: 'Balance: $'. b = label: subject balance. |
+	l visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
+	b visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
+			^row: { l. blank: 20. b }
+		)
+transactionPresenters = (
+	^subject transactions collect: [ :s | s presenter ]
+)
+) : (
+)
+public class IndexedDB usingPlatform: platform = (
+	|
+    (* Imports *)
+    public List = platform collections List.
+    public Map = platform collections Map.
+    private ObjectMirror = platform mirrors ObjectMirror.
+    private ClassMirror = platform mirrors ClassMirror.
+	js = platform js.
+	JSObject = js global at: 'Object'.
+
+    (* Model slots *)
+    db <Alien>
+    stores  <Map[IDBObject|IDBStore]>= Map new.
+ 	|
+) (
+public class IDBRequest new: req = (
+	| request <Alien> = req. |
+    request addEventListener: 'success' with: [ :e | onSuccess: e ].
+    request addEventListener: 'error' with: [ :e | onError: e ].
+    request addEventListener: 'upgradeneeded' with: [ :e | onUpgrade: e ].
+) (
+onError: e = (
+	idb signalError: e.
+)
+onSuccess: event <Alien> = (
+	'Request open succeeded' out.
+	db:: (event at: #target) at: #result.
+    complete.
+)
+complete = (
+    request removeEventListener: 'success'.
+    request removeEventListener: 'error'.
+    request removeEventListener: 'upgradeneeded'.
+)
+onUpgrade: event = (
+	'IndexedDB upgrade needed fired' out.
+   ( 'Old Version: ', (e at: #oldVersion)) out.
+   ( 'New Version: ', (e at: #newVersion)) out.
+	db isNil ifTrue: [ db:: (event at: #target) at: #result ].
+    (* Create/update datastores *)
+    subject upgradeDatabase: event.
+)
+) : (
+)
+public class IDBStore forClass: c <IDBObject class> = (
+	|
+    storeClass <Class> = c.
+    keyPath <String> = c reflectee keyPath.
+    store <Alien>
+    |
+    createStore
+) (
+public save: o = (
+	^IDBStoreRequest for: o on: self
+)
+get: aKey = (
+	
+)
+createStore = (| o = JSObject new at: #keyPath put: keyPath; yourself. |
+	db createObjectStore: storeClass mixin name with: o.
+)
+) : (
+)
+public class IDBObject = (
+	|
+	uuid
+	|
+) (
+asJSObject = (	|
+    mm = ObjectMirror on: self.
+    cm = mm classMirror.
+    jsobject = JSObject new.
+    |
+	cm slots do: [ :slot | jsobject at: slot name put: slot reflectee ].
+	^jsobject
+)
+public store = (| cm = (ObjectMirror reflecting: self) getClass. |
+	^stores at: cm ifAbsent: [
+    	stores at: cm put: (IDBStore forClass: cm) ].
+)
+public uuidxxx = (
+	uuid_slot isNil ifTrue: [ uuid_slot:: (js at: #crypto) randomUUID ].
+    ^uuid_slot
+)
+) : (
+public keyPath = (
+	^'uuid'
+)
+)
+public class IDBSubject = (
+) (
+public save: o = (
+    o store save: o asJSObject.
+)
+upgradeDatabase: e <Alien[Event]> = (
+	|
+    mm = ObjectMirror reflecting: model.
+    cm = mm getClass.
+    |
+	'subject upgrade database triggered' out.
+  	(cm nestedClasses select: [ :c | c superclass reflectee == IDBObject ]) do: [ :c |
+    	stores at: c reflectee put: (IDBStore forClass: c reflectee).
+    ]
+)
+public openDB = (| cm = (ObjectMirror reflecting: model) getClass. |
+	'IDBSubject openDB called' out.
+	open: cm mixin name version: model version
+)
+) : (
+)
+public class IDBStoreRequest for: o <IDBObject> on: s <IDBStore> = (
+	| request = o uuid isNil ifTrue: [ s add: o ] ifFalse: [ s put: o ]. |
+    request addEventListener: 'success' with: [ :e | o uuid isNil ifTrue: [ o uuid: (e at: #result). ] ].
+    request addEventListener: 'error' with: [ :e | signal: e ].
+) (
+) : (
+)
+public createStore: s <IDBStore>  = (
+	| 
+    o = JSObject new at: #keyPath put: s keyPath; yourself.
+	store <Alien> = db createStore: s storeName with: o.
+    |
+    ^stores at: s storeClass put: store.
+)
+public open: d <String> version: v <Integer> = (
+	('Opening DB ', d, ' version ', v printString) out.
+   ^IDBRequest new: ((js global at: 'indexedDB') open: d version: v).
+)
+) : (
+)
+public balance = (
+		^transactions inject: 0 into: [ :s :t | s + t amount ].
+	)
+public deposit: b <BankTransaction> = (
+	^transactions add: b
+)
+public withdraw: b <BankTransaction> = (
+	    ^transactions add: t
+	)
+) : (
+)
