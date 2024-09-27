@@ -1,19 +1,19 @@
 Newspeak3
 'Root'
-class BigBrotherTrust usingPlatform: p = (
+class BigBrotherTrust usingPlatform: platform = (
 |
-	private List = p collections List.
-    public js = p js.
-    private Date = js global at: 'Date'.
-    private Color = p graphics Color.
-    private Gradient = p hopscotch Gradient.
-	private Presenter = p hopscotch core Presenter.
+	private List = platform collections List.
+    public JSObject = platform js global at: 'Object'.
+    private Date = platform js global at: 'Date'.
+    private Color = platform graphics Color.
+    private Gradient = platform hopscotch Gradient.
+	private Presenter = platform hopscotch core Presenter.
 
-	private database = IndexedDB usingPlatform: p.
-    private IDBObject = database IDBObject.
-    private IDBSubject = p hopscotch core Subject mixinApply: database IDBSubject.
-	
-    public version = 5.
+	private indexedDB = IndexedDB usingPlatform: platform.
+    private IDBObject = indexedDB IDBObject.
+    private IDBSubject = platform hopscotch core Subject mixinApply: indexedDB IDBSubject.
+
+    public version = 1.
 	public transactions = List new.
 |
 ) (
@@ -90,9 +90,6 @@ deposits = (
 public balance = (
 		^model balance
 	)
-window = (
-	^model window
-)
 public loadTx = (| tx nocors |
 	nocors: (js global at: 'Object') new.
     nocors at: 'mode' put: 'no-cors'.
@@ -100,14 +97,7 @@ public loadTx = (| tx nocors |
     		then: [ :r | r json then: [ :data | data ] ].
     ^tx
 )
-transact: amt = (| b s d |
-		d:: Date now.
-		s:: (Date new: d) toDateString.
-		b:: BankTransaction amount: amt onDate: d formatted: s.
-        save: b.
-		model transact: b.
-)
-public deposit: amt = ( 
+public deposit: amt = (
 	transact: amt.
 )
 public withdraw: amt = (
@@ -115,6 +105,24 @@ public withdraw: amt = (
 )
 public transactionSubjects = (
 	^transactions
+)
+transact: amt = (| b s d |
+		d:: Date now.
+		s:: (Date new: d) toDateString.
+		b:: BankTransaction amount: amt onDate: d formatted: s.
+        add: b.
+		model transact: b.
+)
+onUpgradeNeeded: event = (
+    | o = JSObject new. |
+    super onUpgradeNeeded: event.
+	o  at: 'keyPath' put: 'uuid'.
+   db createObjectStore: 'BankTransaction' with: o.
+)
+onSuccess: event = (
+	| o = JSObject new. |
+	super onSuccess: event.
+    (* db getAll. *)
 )
 ) : (
 )
@@ -224,47 +232,17 @@ public class IndexedDB usingPlatform: platform = (
     public Map = platform collections Map.
     private ObjectMirror = platform mirrors ObjectMirror.
     private ClassMirror = platform mirrors ClassMirror.
-	js = platform js.
-	JSObject = js global at: 'Object'.
+	private JSObject = platform js global at: 'Object'.
+    private crypto = platform js global at: 'crypto'.
 
-    (* Model slots *)
-    db <Alien>
-    stores  <Map[IDBObject|IDBStore]>= Map new.
- 	|
+    (* The browser's IndexedDB API object *)
+    private indexedDB <Alien> = platform js global at: 'indexedDB'.
+	|
 ) (
-public class IDBRequest new: req = (
-	| request <Alien> = req. |
-    request addEventListener: 'success' with: [ :e | onSuccess: e ].
-    request addEventListener: 'error' with: [ :e | onError: e ].
-    request addEventListener: 'upgradeneeded' with: [ :e | onUpgrade: e ].
-) (
-onError: e = (
-	idb signalError: e.
-)
-onSuccess: event <Alien> = (
-	'Request open succeeded' out.
-	db:: (event at: #target) at: #result.
-    complete.
-)
-complete = (
-    request removeEventListener: 'success'.
-    request removeEventListener: 'error'.
-    request removeEventListener: 'upgradeneeded'.
-)
-onUpgrade: event = (
-	'IndexedDB upgrade needed fired' out.
-   ( 'Old Version: ', (e at: #oldVersion)) out.
-   ( 'New Version: ', (e at: #newVersion)) out.
-	db isNil ifTrue: [ db:: (event at: #target) at: #result ].
-    (* Create/update datastores *)
-    subject upgradeDatabase: event.
-)
-) : (
-)
 public class IDBStore forClass: c <IDBObject class> = (
 	|
     storeClass <Class> = c.
-    keyPath <String> = c reflectee keyPath.
+    keyPath <String> = c keyPath.
     store <Alien>
     |
     createStore
@@ -273,32 +251,39 @@ public save: o = (
 	^IDBStoreRequest for: o on: self
 )
 get: aKey = (
-	
+
 )
 createStore = (| o = JSObject new at: #keyPath put: keyPath; yourself. |
-	db createObjectStore: storeClass mixin name with: o.
+	'Creating objectStore' out.
+	indexedDB createObjectStore: storeClass mixin name with: o.
 )
 ) : (
 )
 public class IDBObject = (
 	|
-	uuid
+	uuid_slot
 	|
 ) (
-asJSObject = (	|
-    mm = ObjectMirror on: self.
-    cm = mm classMirror.
-    jsobject = JSObject new.
-    |
-	cm slots do: [ :slot | jsobject at: slot name put: slot reflectee ].
-	^jsobject
-)
 public store = (| cm = (ObjectMirror reflecting: self) getClass. |
 	^stores at: cm ifAbsent: [
     	stores at: cm put: (IDBStore forClass: cm) ].
 )
-public uuidxxx = (
-	uuid_slot isNil ifTrue: [ uuid_slot:: (js at: #crypto) randomUUID ].
+public asJSObject = (
+	|
+    m = ObjectMirror reflecting: self.
+    cm = m getClass.
+    o = JSObject new.
+    |
+	cm slots do: [ :slot | | n v | 
+    	n: slot name. n out.
+        v:: m getSlot: n.
+        o at: n put: v reflectee
+    ].
+	^o
+)
+public uuid = (
+	'uuid accessed' out.
+	uuid_slot isNil ifTrue: [ uuid_slot:: crypto randomUUID ].
     ^uuid_slot
 )
 ) : (
@@ -307,43 +292,87 @@ public keyPath = (
 )
 )
 public class IDBSubject = (
+(* 
+	This class is to be used as a mixin whose many event handlers can be overriden by your application subject.
+	Override onUpgradeNeeded to create the objectStores needed to store your model objects.
+    Overrided onSuccess to load data?
+    Currently, stores use the class name of the objects to be stored using IDBSubject's add: put: and delete: methods. Custom behavior would require overriding these.
+*)
+ |
+ (* The connection to the application's database *)
+ db <Alien>
+ |
 ) (
-public save: o = (
-    o store save: o asJSObject.
+public onBlocked: e = (
+	'Blocked triggered' out.
 )
-upgradeDatabase: e <Alien[Event]> = (
+modelClasses = (| m = (ObjectMirror reflecting: model) getClass mixin. |
+	^m nestedClasses select: [ :c | c definingMixin superclass = IDBObject ]
+)
+public onTxComplete: event <Alien> = (
+	'Transaction complete triggered' out.
+)
+public onTxError: e <Alien> = (
+	'Transaction error triggered' out.
+)
+public onUpgradeNeeded: event <Alien> = (
+    'upgradeneeded triggered' out.
+    db::  (event at: #target) at: #result.
+)
+public onSuccess: event <Alien> = (
+	'Open DB succeeded' out.
+    db:: (event at: #target) at: #result.
+)
+public openDB = (
 	|
-    mm = ObjectMirror reflecting: model.
-    cm = mm getClass.
+    cm = (ObjectMirror reflecting: model) getClass. 
+	request	= indexedDB open: cm mixin name version: model version.
     |
-	'subject upgrade database triggered' out.
-  	(cm nestedClasses select: [ :c | c superclass reflectee == IDBObject ]) do: [ :c |
-    	stores at: c reflectee put: (IDBStore forClass: c reflectee).
-    ]
-)
-public openDB = (| cm = (ObjectMirror reflecting: model) getClass. |
+    request addEventListener: 'upgradeneeded' with: [ :e | onUpgradeNeeded: e. nil ].
+    request addEventListener: 'blocked' with: [ :e | onBlocked: e. nil ].
+    request addEventListener: 'success' with: [ :e | onSuccess: e. nil ].
+    request addEventListener: 'error' with: [ :e | (e at: #error) out. nil ].
 	'IDBSubject openDB called' out.
-	open: cm mixin name version: model version
 )
-) : (
-)
-public class IDBStoreRequest for: o <IDBObject> on: s <IDBStore> = (
-	| request = o uuid isNil ifTrue: [ s add: o ] ifFalse: [ s put: o ]. |
-    request addEventListener: 'success' with: [ :e | o uuid isNil ifTrue: [ o uuid: (e at: #result). ] ].
-    request addEventListener: 'error' with: [ :e | signal: e ].
-) (
-) : (
-)
-public createStore: s <IDBStore>  = (
-	| 
-    o = JSObject new at: #keyPath put: s keyPath; yourself.
-	store <Alien> = db createStore: s storeName with: o.
+public delete: o = (
+	|
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx 
+    store
     |
-    ^stores at: s storeClass put: store.
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+    store:: tx objectStore: s.
+    store delete: o asJSObject.
 )
-public open: d <String> version: v <Integer> = (
-	('Opening DB ', d, ' version ', v printString) out.
-   ^IDBRequest new: ((js global at: 'indexedDB') open: d version: v).
+public put: o <IDBObject> = (
+	|
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx 
+    store
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+    store:: tx objectStore: s.
+    store put: o asJSObject.
+)
+public add: o = (
+	| 
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx 
+    store
+    req
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+    store:: tx objectStore: s.
+    req:: store add: o asJSObject.
+    req addEventListener: 'success' handler: [ :e | self onSuccess: e. nil ]
+)
+) : (
 )
 ) : (
 )
