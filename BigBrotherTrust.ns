@@ -5,9 +5,11 @@ class BigBrotherTrust usingPlatform: platform = (
 	private List = platform collections List.
     public JSObject = platform js global at: 'Object'.
     private Date = platform js global at: 'Date'.
+    private Window = platform js global.
     private Color = platform graphics Color.
     private Gradient = platform hopscotch Gradient.
 	private Presenter = platform hopscotch core Presenter.
+    private Subject = platform hopscotch core Subject.
 
 	private indexedDB = IndexedDB usingPlatform: platform.
     private IDBObject = indexedDB IDBObject.
@@ -23,6 +25,24 @@ public class BankTransaction amount: a onDate: d <Integer> = IDBObject (
     txDate = d.
     |
 ) (
+public txSubject = (
+	^BankTransactionSubject onModel: self
+)
+public asJSObjectx = (| jso = JSObject new. |
+	^jso
+    	at: 'uuid' put: uuid;
+        at: 'amt' put: amt;
+        at: 'txDate' put: txDate;
+        yourself.
+)
+public amount = (
+			^amt
+		)
+public transactionDate = (
+			^(Date new: txDate) toDateString
+		)
+) : (
+)
 class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
 		) (
 isMyKind: p <Presenter> ^ <Boolean> = (
@@ -61,17 +81,6 @@ isMyKind: s = (
 )
 ) : (
 )
-public txSubject = (
-	^BankTransactionSubject onModel: self
-)
-public transactionDate = (
-			^txDate toDateString
-		)
-public amount = (
-			^amt
-		)
-) : (
-)
 public class BankAccountSubject onModel: b <BigBrotherTrust> = IDBSubject onModel: b (
 ) (
 withdrawals = (
@@ -96,16 +105,6 @@ public loadTx = (| tx nocors |
 public deposit: amt = (
 	transact: amt.
 )
-public withdraw: amt = (
-	transact: (amt * -1).
-)
-transact: amt = (| b s d |
-		d:: Date now.
-		s:: (Date new: d) toDateString.
-		b:: BankTransaction amount: amt onDate: d formatted: s.
-        add: b.
-		model transact: b.
-)
 onUpgradeNeeded: event = (
     | o = JSObject new. |
     super onUpgradeNeeded: event.
@@ -122,21 +121,31 @@ onSuccess: event = (
     req: store getAll.
     req addEventListener: 'success' handler: [ :e | onGetAllSuccess: e. nil ].
 )
+public transactionSubjects = (
+	'transactionSubjects called' out.
+	^transactions collect: [ :t | BankTransactionSubject onModel: t ]
+)
+transact: amt = (| b s d |
+		d:: Date now.
+		b:: BankTransaction amount: amt onDate: d.
+        add: b.
+		model transact: b.
+)
+public withdraw: amt = (
+	balance < amt ifTrue: [ ^Window alert: 'Insufficient funds available' ].
+	transact: (amt * -1).
+)
 onGetAllSuccess: event <Alien> = (
 	| r = (event at: #target) at: #result. |
     1 to: (r at: #length) do: [ :i | | b a d o |
     	o:: r at: (i - 1).
     	a:: o at: 'amt'.
-        d:: o at: 'txDate'.
+        d:: (o at: 'txDate').
         b:: BankTransaction amount: a onDate: d.
         transactions add: b.
      ].
+     presenter refresh.
     'onGetAllSuccess completed' out.
-    (transactions size printString) out.
-)
-public transactionSubjects = (
-	'transactionSubjects called' out.
-	^transactions collect: [ :t | BankTransactionSubject onModel: t ]
 )
 ) : (
 )
@@ -185,9 +194,6 @@ minorHeadingColor = (
 loadTx = (
 	^subject loadTx
 )
-test = (
-	^button: 'Tx' action: [ updateGUI: [ loadTx ]].
-)
 transactionsHeader = ( | l = label: 'Transactions'. |
 	^row: { l }.
 )
@@ -206,20 +212,6 @@ header = ( | l = label: 'Your Money'. |
 	l visual at: 'style' put: 'font-size: 200%'.
 		^row: {  l. }
 		)
-public definition ^<Fragment> = (
-	^column: {
-    	logoBlock: logo.
-		majorHeadingBlock: header.
-		minorHeadingBlock: currentBalance.
-		transactionsHeader.
-		transactionList.
-		row: { label: 'Deposit:' }.
-        row: { newDepositInput. }.
-		row: { label: 'Withdrawal:' }.
-		row: { newWithdrawalInput. }.
-        row: { test }
-	}
-)
 logoBlock: body = (
 	^(padded: body with: { 100. 75. 100. 75. }) color: logoColor.
 )
@@ -237,6 +229,22 @@ majorHeadingColor = (
 transactionPresenters = (
 	'transactionPresenters called' out.
 	^subject transactionSubjects collect: [ :s | s presenter ]
+)
+public refresh = (
+	updateGUI: [ ].
+)
+public definition ^<Fragment> = (
+	^column: {
+    	logoBlock: logo.
+		majorHeadingBlock: header.
+		minorHeadingBlock: currentBalance.
+		transactionsHeader.
+		transactionList.
+		row: { label: 'Deposit:' }.
+        row: { newDepositInput. }.
+		row: { label: 'Withdrawal:' }.
+		row: { newWithdrawalInput. }.
+    }
 )
 ) : (
 )
@@ -305,7 +313,6 @@ public class IDBSubject = (
  (* The connection to the application's database *)
  db <Alien>
  |
- openDB: b version.
 ) (
 public onBlocked: e = (
 	'Blocked triggered' out.
@@ -350,29 +357,6 @@ public put: o <IDBObject> = (
     store:: tx objectStore: s.
     store put: o asJSObject.
 )
-public add: o = (
-	|
-    m = ObjectMirror reflecting: o.
-	s = m getClass mixin name.
-    tx
-    store
-    req
-    |
-    (* Create the UUID key for the model *)
-    m setSlot: 'uuid' to: crypto randomUUID.
-
-    (* Create the IDBTransaction *)
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
-
-    (* Get the IDBObjectStore from the transaction *)
-    store:: tx objectStore: s.
-
-    (* Store the model object *)
-    req:: store add: o asJSObject.
-    req addEventListener: 'success' handler: [ :e | self onSuccess: e. nil ]
-)
 public delete: o = (
 	|
 	s = (ObjectMirror reflecting: o) getClass mixin name.
@@ -402,6 +386,29 @@ public openDB: version <Integer> = (
     request addEventListener: 'success' with: [ :e | onSuccess: e. nil ].
     request addEventListener: 'error' with: [ :e | (e at: #error) out. nil ].
 	'IDBSubject openDB called' out.
+)
+public add: o = (
+	|
+    m = ObjectMirror reflecting: o.
+	s = m getClass mixin name.
+    tx
+    store
+    req
+    |
+    (* Create the UUID key for the model *)
+    m setSlot: 'uuid' to: crypto randomUUID.
+
+    (* Create the IDBTransaction *)
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+
+    (* Get the IDBObjectStore from the transaction *)
+    store:: tx objectStore: s.
+
+    (* Store the model object *)
+    req:: store add: o asJSObject.
+    req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
 )
 ) : (
 )
