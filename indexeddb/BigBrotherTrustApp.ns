@@ -2,12 +2,14 @@ Newspeak3
 'Root'
 class BigBrotherTrustApp packageUsing: manifest = (
 	|
+    private IndexedDB = manifest IndexedDB.
 	private BigBrotherTrust = manifest BigBrotherTrust.
     |
 ) (
 public main: platform <Platform> args: args = (
 	|
-	b = BigBrotherTrust usingPlatform: platform.
+    idb =  IndexedDB usingPlatform: platform.
+	b = BigBrotherTrust usingPlatform: platform indexedDB: idb.
  	s = b BankAccountSubject onModel: b.
     |
     s openDB.

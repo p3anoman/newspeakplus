@@ -1,0 +1,148 @@
+Newspeak3
+'Root'
+public class IndexedDB usingPlatform: platform = (
+	|
+    (* Imports *)
+    public List = platform collections List.
+    public Map = platform collections Map.
+    private ObjectMirror = platform mirrors ObjectMirror.
+    private ClassMirror = platform mirrors ClassMirror.
+	private JSObject = platform js global at: 'Object'.
+    private crypto = platform js global at: 'crypto'.
+
+    (* The browser's IndexedDB API object *)
+    private indexedDB <Alien> = platform js global at: 'indexedDB'.
+	|
+) (
+public class IDBObject = (
+	|
+	uuid
+	|
+) (
+public asJSObject = (
+	|
+    m = ObjectMirror reflecting: self.
+    cm = m getClass.
+    o = JSObject new.
+    |
+	cm slots do: [ :slot | | n v |
+    	n: slot name.
+        v:: m getSlot: n.
+        o at: n put: v reflectee
+    ].
+	^o
+)
+) : (
+)
+public class IDBSubject = (
+(*
+	This class is to be used as a mixin whose many event handlers can be overriden by your application subject.
+	Override onUpgradeNeeded to create the objectStores needed to store your model objects.
+    Overrided onSuccess to load data?
+    Currently, stores use the class name of the objects to be stored using IDBSubject's add: put: and delete: methods. Custom behavior would require overriding these.
+*)
+ |
+ (* The connection to the application's database *)
+ db <Alien>
+ |
+) (
+public onBlocked: e = (
+	'Blocked triggered' out.
+)
+public onTxComplete: event <Alien> = (
+	'Transaction complete triggered' out.
+)
+public onTxError: e <Alien> = (
+	'Transaction error triggered' out.
+)
+public onUpgradeNeeded: event <Alien> = (
+    'upgradeneeded triggered' out.
+    db::  (event at: #target) at: #result.
+)
+public onSuccess: event <Alien> = (
+	'Open DB succeeded' out.
+    db:: (event at: #target) at: #result.
+)
+public openDB = (
+	|
+    cm = (ObjectMirror reflecting: model) getClass.
+	request	= indexedDB open: cm mixin name version: model version.
+    |
+    request addEventListener: 'upgradeneeded' with: [ :e | onUpgradeNeeded: e. nil ].
+    request addEventListener: 'blocked' with: [ :e | onBlocked: e. nil ].
+    request addEventListener: 'success' with: [ :e | onSuccess: e. nil ].
+    request addEventListener: 'error' with: [ :e | (e at: #error) out. nil ].
+	'IDBSubject openDB called' out.
+)
+public put: o <IDBObject> = (
+	|
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx
+    store
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+    store:: tx objectStore: s.
+    store put: o asJSObject.
+)
+public delete: o = (
+	|
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx
+    store
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+    store:: tx objectStore: s.
+    store delete: o uuid.
+)
+onAddSuccess: event <Alien> = (
+	'Add succeeded' out.
+)
+get: aUUID = (
+)
+getAll = (
+)
+public openDB: version <Integer> = (
+	|
+    cm = (ObjectMirror reflecting: model) getClass.
+	request	= indexedDB open: cm mixin name version: version.
+    |
+    request addEventListener: 'upgradeneeded' with: [ :e | onUpgradeNeeded: e. nil ].
+    request addEventListener: 'blocked' with: [ :e | onBlocked: e. nil ].
+    request addEventListener: 'success' with: [ :e | onSuccess: e. nil ].
+    request addEventListener: 'error' with: [ :e | (e at: #error) out. nil ].
+	'IDBSubject openDB called' out.
+)
+public add: o = (
+	|
+    m = ObjectMirror reflecting: o.
+	s = m getClass mixin name.
+    tx
+    store
+    req
+    |
+    (* Create the UUID key for the model *)
+    m setSlot: 'uuid' to: crypto randomUUID.
+
+    (* Create the IDBTransaction *)
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+
+    (* Get the IDBObjectStore from the transaction *)
+    store:: tx objectStore: s.
+
+    (* Store the model object *)
+    req:: store add: o asJSObject.
+    req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
+)
+modelClasses = (
+	^subclassResponsibility
+)
+) : (
+)
+) : (
+)
