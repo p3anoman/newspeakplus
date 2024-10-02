@@ -46,64 +46,15 @@ public class IDBSubject = (
  db <Alien>
  |
 ) (
-public onBlocked: e = (
-	'Blocked triggered' out.
-)
-public onTxComplete: event <Alien> = (
-	'Transaction complete triggered' out.
-)
-public onTxError: e <Alien> = (
-	'Transaction error triggered' out.
-)
-public onUpgradeNeeded: event <Alien> = (
-    'upgradeneeded triggered' out.
-    db::  (event at: #target) at: #result.
-)
-public onSuccess: event <Alien> = (
-	'Open DB succeeded' out.
-    db:: (event at: #target) at: #result.
-)
-public openDB = (
-	|
-    cm = (ObjectMirror reflecting: model) getClass.
-	request	= indexedDB open: cm mixin name version: model version.
-    |
-    request addEventListener: 'upgradeneeded' with: [ :e | onUpgradeNeeded: e. nil ].
-    request addEventListener: 'blocked' with: [ :e | onBlocked: e. nil ].
-    request addEventListener: 'success' with: [ :e | onSuccess: e. nil ].
-    request addEventListener: 'error' with: [ :e | (e at: #error) out. nil ].
-	'IDBSubject openDB called' out.
-)
-public put: o <IDBObject> = (
-	|
-	s = (ObjectMirror reflecting: o) getClass mixin name.
-    tx
-    store
-    |
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
-    store:: tx objectStore: s.
-    store put: o asJSObject.
-)
-public delete: o = (
-	|
-	s = (ObjectMirror reflecting: o) getClass mixin name.
-    tx
-    store
-    |
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
-    store:: tx objectStore: s.
-    store delete: o uuid.
-)
 onAddSuccess: event <Alien> = (
 	'Add succeeded' out.
 )
 get: aUUID = (
 )
 getAll = (
+)
+modelClasses = (
+	^subclassResponsibility
 )
 public openDB: version <Integer> = (
 	|
@@ -112,11 +63,20 @@ public openDB: version <Integer> = (
     |
     request addEventListener: 'upgradeneeded' with: [ :e | onUpgradeNeeded: e. nil ].
     request addEventListener: 'blocked' with: [ :e | onBlocked: e. nil ].
-    request addEventListener: 'success' with: [ :e | onSuccess: e. nil ].
+    request addEventListener: 'success' with: [ :e | onOpenSuccess: e. nil ].
     request addEventListener: 'error' with: [ :e | (e at: #error) out. nil ].
 	'IDBSubject openDB called' out.
 )
-public add: o = (
+onBlocked: e = (
+	'Blocked triggered' out.
+)
+onTxComplete: event <Alien> = (
+	'Transaction complete triggered' out.
+)
+onTxError: e <Alien> = (
+	'Transaction error triggered' out.
+)
+add: o = (
 	|
     m = ObjectMirror reflecting: o.
 	s = m getClass mixin name.
@@ -139,8 +99,52 @@ public add: o = (
     req:: store add: o asJSObject.
     req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
 )
-modelClasses = (
-	^subclassResponsibility
+delete: o = (
+	|
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx
+    store
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+    store:: tx objectStore: s.
+    store delete: o uuid.
+)
+put: o <IDBObject> = (
+	|
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx
+    store
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+    store:: tx objectStore: s.
+    store put: o asJSObject.
+)
+public openDB = (
+	openDB: model version.
+)
+onUpgradeNeeded: event <Alien> = (| o = JSObject new. |
+    db::  (event at: #target) at: #result.
+	o  at: 'keyPath' put: 'uuid'.
+   	modelClasses do: [ :m | | cm = ClassMirror reflecting: m. |
+		db createObjectStore: cm mixin name with: o.
+    ].
+    'upgradeneeded triggered' out.
+)
+onOpenSuccess: event <Alien> = (
+	'Open DB succeeded' out.
+    db:: (event at: #target) at: #result.
+    modelClasses do: [ :m |
+		| tx store req cm = ClassMirror reflecting: m. |
+    	tx:: db transaction: cm mixin name for: 'readonly'.
+   		tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    	store:: tx objectStore: cm mixin name.
+    	req: store getAll.
+    	req addEventListener: 'success' handler: [ :e | onGetAllSuccess: e. nil ].
+    ].
 )
 ) : (
 )

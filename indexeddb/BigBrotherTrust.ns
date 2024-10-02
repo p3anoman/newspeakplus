@@ -25,9 +25,6 @@ public class BankTransaction amount: a onDate: d <Integer> = IDBObject (
     txDate = d.
     |
 ) (
-public txSubject = (
-	^BankTransactionSubject onModel: self
-)
 public asJSObjectx = (| jso = JSObject new. |
 	^jso
     	at: 'uuid' put: uuid;
@@ -52,13 +49,34 @@ isKindOfBankTransactionPresenter = (
 			^true
 		)
 public definition ^ <Fragment> = (
-			^row: {  label: subject transactionDate. blank: 100 . txLabel. txAmount. }
-		)
-txLabel = ( | txt = subject amount < 0 ifTrue: [ 'Withdrawal:' ] ifFalse: [ 'Deposit:' ]. |
-	^column: { label: txt. }
+	^transactionBlock: transactionRow
 )
-txAmount = (
-	^column: { label: subject amount }
+transactionBlock: row = (
+	^padded: row with: { 10. 10. 10. 10. }
+)
+transactionRow = (
+	^row: {  
+			dateColumn.
+            blank: 100.
+            typeColumn.
+            blank: 100.
+            amountColumn.
+	}
+)
+dateColumn= (| lbl = label: subject transactionDate. |
+	lbl visual at: 'style' put: style.
+	^column: { lbl }
+)
+typeColumn = ( | lbl = label: subject transactionType. |
+	lbl visual at: 'style' put: style.
+	^column: { lbl. }
+)
+style = (
+	^'font-family: sans-serif; font-size: 110%; color: slateGray'
+)
+amountColumn = (| lbl = label: subject amount. |
+	lbl visual at: 'style' put: style, 'text-align: right'.
+	^column: { lbl }
 )
 ) : (
 )
@@ -67,17 +85,20 @@ public class BankTransactionSubject onModel: t <BankTransaction> = Subject onMod
 public createPresenter = (
 			^BankTransactionPresenter onSubject: self
 		)
-public transactionDate = (
-			^model transactionDate
-		)
-public amount = (
-			^model amount
-		)
 isKindOfBankTransactionSubject = (
 	^true
 )
 isMyKind: s = (
 	^s isKindOfBankTransactionSubject
+)
+public amount = (
+			^model amount
+		)
+public transactionDate = (
+ ^model transactionDate
+)
+public transactionType = (
+	^amount < 0 ifTrue: [ 'Withdrawal:' ] ifFalse: [ 'Deposit:' ]
 )
 ) : (
 )
@@ -95,31 +116,8 @@ deposits = (
 public balance = (
 		^model balance
 	)
-public loadTx = (| tx nocors |
-	nocors: (js global at: 'Object') new.
-    nocors at: 'mode' put: 'no-cors'.
-	tx:: (js global fetch: 'http://localhost:8077/transactions' with: nocors)
-    		then: [ :r | r json then: [ :data | data ] ].
-    ^tx
-)
 public deposit: amt = (
 	transact: amt.
-)
-onUpgradeNeeded: event = (
-    | o = JSObject new. |
-    super onUpgradeNeeded: event.
-	o  at: 'keyPath' put: 'uuid'.
-   db createObjectStore: 'BankTransaction' with: o.
-)
-onSuccess: event = (
-	| o r tx store req |
-	super onSuccess: event.
-    (* db getAll. *)
-    tx:: db transaction: 'BankTransaction' for: 'readonly'.
-    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    store:: tx objectStore: 'BankTransaction'.
-    req: store getAll.
-    req addEventListener: 'success' handler: [ :e | onGetAllSuccess: e. nil ].
 )
 public transactionSubjects = (
 	'transactionSubjects called' out.
@@ -146,6 +144,16 @@ onGetAllSuccess: event <Alien> = (
      ].
      presenter refresh.
     'onGetAllSuccess completed' out.
+)
+modelClasses = (
+	^{ BankTransaction. }
+)
+onUpgradeNeeded: event = (
+    super onUpgradeNeeded: event.
+)
+onOpenSuccess: event = (
+	super onOpenSuccess: event.
+    (* db getAll. *)
 )
 ) : (
 )
