@@ -19,19 +19,12 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 	public transactions = List new.
 |
 ) (
-public class BankTransaction amount: a onDate: d <Integer> = IDBObject (
+public class BankTransaction id: uuid <UUID> amount: a <Number> onDate: d <Integer> = IDBObject uuid: uuid (
 	|
     amt = a.
     txDate = d.
     |
 ) (
-public asJSObjectx = (| jso = JSObject new. |
-	^jso
-    	at: 'uuid' put: uuid;
-        at: 'amt' put: amt;
-        at: 'txDate' put: txDate;
-        yourself.
-)
 public amount = (
 			^amt
 		)
@@ -39,6 +32,9 @@ public transactionDate = (
 			^(Date new: txDate) toDateString
 		)
 ) : (
+public new: array = (
+	^self id: (array at: 0) amount: (array at: 1) onDate: (array at: 2)
+)
 )
 class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
 		) (
@@ -50,18 +46,6 @@ isKindOfBankTransactionPresenter = (
 		)
 public definition ^ <Fragment> = (
 	^transactionBlock: transactionRow
-)
-transactionBlock: row = (
-	^padded: row with: { 10. 10. 10. 10. }
-)
-transactionRow = (
-	^row: {  
-			dateColumn.
-            blank: 100.
-            typeColumn.
-            blank: 100.
-            amountColumn.
-	}
 )
 dateColumn= (| lbl = label: subject transactionDate. |
 	lbl visual at: 'style' put: style.
@@ -77,6 +61,27 @@ style = (
 amountColumn = (| lbl = label: subject amount. |
 	lbl visual at: 'style' put: style, 'text-align: right'.
 	^column: { lbl }
+)
+transactionBlock: row = (
+	^(padded: row with: { 10. 10. 10. 10. }) color: (Gradient from: Color white to: Color gray).
+)
+transactionRow = (
+	^row: {  
+			dateColumn.
+            blank: 100.
+            typeColumn.
+            blank: 100.
+            amountColumn.
+            blank: 200.
+            editButton.
+            deleteButton.
+	}
+)
+deleteButton = (
+	^button: 'Delete' action: [ updateGUI: [ subject delete ] ]
+)
+editButton = (
+	^button: 'Edit' action: [ updateGUI: [ subject edit ] ]
 )
 ) : (
 )
@@ -99,6 +104,12 @@ public transactionDate = (
 )
 public transactionType = (
 	^amount < 0 ifTrue: [ 'Withdrawal:' ] ifFalse: [ 'Deposit:' ]
+)
+public delete = (
+	delete: model
+)
+public edit = (
+	enterPresenter: (BankTransactionEditPresenter onSubject: self)
 )
 ) : (
 )
@@ -133,8 +144,15 @@ public withdraw: amt = (
 	balance < amt ifTrue: [ ^Window alert: 'Insufficient funds available' ].
 	transact: (amt * -1).
 )
+modelClasses = (
+	^{ BankTransaction. }
+)
 onGetAllSuccess: event <Alien> = (
-	| r = (event at: #target) at: #result. |
+	| tx = super onGetAllSuccess: event. |
+    tx do: [ :t | transactions add: t ].
+    presenter refresh.
+	(* | r = (event at: #target) at: #result. src = (event at: #target) at: 'source'. |
+    ('GetAll source: ', (src at: 'name')) out.
     1 to: (r at: #length) do: [ :i | | b a d o |
     	o:: r at: (i - 1).
     	a:: o at: 'amt'.
@@ -142,18 +160,8 @@ onGetAllSuccess: event <Alien> = (
         b:: BankTransaction amount: a onDate: d.
         transactions add: b.
      ].
-     presenter refresh.
+     presenter refresh. *)
     'onGetAllSuccess completed' out.
-)
-modelClasses = (
-	^{ BankTransaction. }
-)
-onUpgradeNeeded: event = (
-    super onUpgradeNeeded: event.
-)
-onOpenSuccess: event = (
-	super onOpenSuccess: event.
-    (* db getAll. *)
 )
 ) : (
 )
@@ -196,14 +204,8 @@ newWithdrawalInput ^ <Fragment> = (
 	].
   ^cm
 )
-minorHeadingColor = (
-	^Gradient from: Color gray to: Color white.
-)
 loadTx = (
 	^subject loadTx
-)
-transactionsHeader = ( | l = label: 'Transactions'. |
-	^row: { l }.
 )
 minorHeadingBlock: body = (
 	^(padded: body with: {50. 25. 25. 25.})
@@ -231,9 +233,6 @@ currentBalance ^<Fragment> = (| l = label: 'Balance: $'. b = label: subject bala
 logoColor = (
 	^Color white
 )
-majorHeadingColor = (
-	^Color gray.
-)
 transactionPresenters = (
 	'transactionPresenters called' out.
 	^subject transactionSubjects collect: [ :s | s presenter ]
@@ -241,20 +240,77 @@ transactionPresenters = (
 public refresh = (
 	updateGUI: [ ].
 )
+majorHeadingColor = (
+	^Color r: 0.3 g: 0.9 b: 0.1 a: 110
+)
+minorHeadingColor = (
+	^Color r: 0.9 g: 0.1 b: 0.1 a: 25.
+)
+transactionsHeader = ( | l = label: 'Transactions'. |
+	l visual at: #style put: styleLabel.
+	^row: { l }.
+)
+depositLabel = (| lbl = label: 'Deposit:'. |
+	lbl visual at: #style put: styleLabel.
+    ^lbl
+)
+labelDeposit = (| lbl = label: 'Deposit:'. |
+	lbl visual at: #style put: labelStyle.
+    ^lbl
+)
+labelWithdrawal = (| lbl =  label: 'Withdrawal:'. |
+	lbl visual at: #style put: labelStyle.
+    ^lbl
+)
+labelStyle = (
+	^ 'font-family: sans-serif; fonsize: 125%; color: green'
+)
+labelTransactions = ( | lbl = label: 'Transactions'. |
+	lbl visual at: #style put: labelStyle.
+	^ lbl
+)
 public definition ^<Fragment> = (
 	^column: {
     	logoBlock: logo.
 		majorHeadingBlock: header.
 		minorHeadingBlock: currentBalance.
-		transactionsHeader.
-		transactionList.
-		row: { label: 'Deposit:' }.
+		row: { labelTransactions }.
+		row: { transactionList }.
+		row: { labelDeposit }.
         row: { newDepositInput. }.
-		row: { label: 'Withdrawal:' }.
+		row: { labelWithdrawal }.
 		row: { newWithdrawalInput. }.
     }
 )
 ) : (
+)
+class BankTransactionEditPresenter onSubject: s = Presenter onSubject: s (
+) (
+) : (
+isMyKind: p = (
+	^ p isKindOfBankTransactionEditPresenter
+)
+isKindOfBankTransactionEditPresenter = (
+	^true
+)
+definition = (
+	^column: {
+    	row: { dateEdit }.
+    	row: { amtEdit }.
+        row: {
+        	saveButton.
+            canxButton.
+        }.
+    }
+)
+dateEdit = (
+)
+amtEdit = (
+)
+saveButton = (
+)
+canxButton = (
+)
 )
 public transact: b <BankTransaction> = (
 	^transactions add: b

@@ -2,12 +2,12 @@ Newspeak3
 'Root'
 public class IndexedDB usingPlatform: platform = (
 	|
-    (*  Implements the browser API of the same name.
-        IDBSubject is meant to be used as a mixin on your application subject. Some methods need to be overriden in the current incarnation.
-	Model classes need to subclass IDBObject giving them the uuid slot and and the asJSObject method.
-        Implement the modelClasses method in your Subject/Top level class. An IDBObjectStore will be created for each of them whose name is that of the class.
-        
-    *)
+		(*
+        	Implements the browser API of the same name.
+			IDBSubject is meant to be used as a mixin on your application subject. Some methods need to be overriden in the current incarnation.
+			Model classes need to subclass IDBObject giving them the uuid slot and and the asJSObject method.
+        	Implement the modelClasses method in your Subject/Top level class. An IDBObjectStore will be created for each of them whose name is that of the class.
+    	*)
     public List = platform collections List.
     public Map = platform collections Map.
     private ObjectMirror = platform mirrors ObjectMirror.
@@ -19,9 +19,9 @@ public class IndexedDB usingPlatform: platform = (
     private indexedDB <Alien> = platform js global at: 'indexedDB'.
 	|
 ) (
-public class IDBObject = (
+public class IDBObject uuid: id = (
 	|
-	uuid
+	uuid = id.
 	|
 ) (
 public asJSObject = (
@@ -38,6 +38,9 @@ public asJSObject = (
 	^o
 )
 ) : (
+public new: array = (
+	^subclassResponsibility
+)
 )
 public class IDBSubject = (
 (*
@@ -150,6 +153,23 @@ onOpenSuccess: event <Alien> = (
     	req: store getAll.
     	req addEventListener: 'success' handler: [ :e | onGetAllSuccess: e. nil ].
     ].
+)
+onGetAllSuccess: event <Alien> = (
+	|
+    tgt = event at: #target.
+    r = tgt at: #result.
+    src = (tgt at: 'source') at: 'name'.
+    modelClass
+    rslt = List new.
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ 'model class not found' out. ^self ].
+    1 to: (r at: #length) do: [ :i | | m o |
+    	o:: r at: (i - 1).
+        m:: modelClass new: (JSObject values: o).
+        rslt add: m.
+     ].
+     ^rslt
 )
 ) : (
 )
