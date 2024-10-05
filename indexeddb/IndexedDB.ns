@@ -9,12 +9,10 @@ public class IndexedDB usingPlatform: platform = (
         	Implement the modelClasses method in your Subject/Top level class. An IDBObjectStore will be created for each of them whose name is that of the class.
     	*)
     public List = platform collections List.
-    public Map = platform collections Map.
     private ObjectMirror = platform mirrors ObjectMirror.
     private ClassMirror = platform mirrors ClassMirror.
 	private JSObject = platform js global at: 'Object'.
-    private crypto = platform js global at: 'crypto'.
-
+    
     (* The browser's IndexedDB API object *)
     private indexedDB <Alien> = platform js global at: 'indexedDB'.
 	|
@@ -84,29 +82,6 @@ onTxComplete: event <Alien> = (
 onTxError: e <Alien> = (
 	'Transaction error triggered' out.
 )
-add: o = (
-	|
-    m = ObjectMirror reflecting: o.
-	s = m getClass mixin name.
-    tx
-    store
-    req
-    |
-    (* Create the UUID key for the model *)
-    m setSlot: 'uuid' to: crypto randomUUID.
-
-    (* Create the IDBTransaction *)
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
-
-    (* Get the IDBObjectStore from the transaction *)
-    store:: tx objectStore: s.
-
-    (* Store the model object *)
-    req:: store add: o asJSObject.
-    req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
-)
 delete: o = (
 	|
 	s = (ObjectMirror reflecting: o) getClass mixin name.
@@ -170,6 +145,29 @@ onGetAllSuccess: event <Alien> = (
         rslt add: m.
      ].
      ^rslt
+)
+add: o = (
+	|
+    m = ObjectMirror reflecting: o.
+	s = m getClass mixin name.
+    tx
+    store
+    req
+    |
+    (* Create the UUID key for the model
+    m setSlot: 'uuid' to: crypto randomUUID. *)
+
+    (* Create the IDBTransaction *)
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
+
+    (* Get the IDBObjectStore from the transaction *)
+    store:: tx objectStore: s.
+
+    (* Store the model object *)
+    req:: store add: o asJSObject.
+    req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
 )
 ) : (
 )
