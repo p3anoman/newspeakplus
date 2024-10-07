@@ -3,14 +3,15 @@ Newspeak3
 class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 |
 	private List = platform collections List.
-    public JSObject = platform js global at: 'Object'.
-    private Date = platform js global at: 'Date'.
-    private Window = platform js global.
-    private crypto = platform js global at: 'crypto'.
     private Color = platform graphics Color.
     private Gradient = platform hopscotch Gradient.
 	private Presenter = platform hopscotch core Presenter.
     private Subject = platform hopscotch core Subject.
+
+    public JSObject = platform js global at: 'Object'.
+    private Date = platform js global at: 'Date'.
+    private Number = platform js global at: 'Number'.
+    private crypto = platform js global at: 'crypto'.
 
 	private indexedDB = idb. (* IndexedDB usingPlatform: platform. *)
     private IDBObject = indexedDB IDBObject.
@@ -26,11 +27,11 @@ public class BankTransaction id: uuid <UUID> amount: a <Number> onDate: d <Integ
     txDate = d.
     |
 ) (
-public amount = (
-			^amt
-		)
 public transactionDate = (
 			^(Date new: txDate) toDateString
+		)
+public amount = (
+			^amt
 		)
 ) : (
 public new: array = (
@@ -86,8 +87,11 @@ transactionBlock: row = (
 )
 ) : (
 )
-public class BankTransactionSubject onModel: t <BankTransaction> = Subject onModel: t (
-		) (
+public class BankTransactionSubject onModel: t <BankTransaction> parent: s <IDBSubject> = Subject onModel: t (
+	|
+    parent = s.
+    |
+) (
 public createPresenter = (
 			^BankTransactionPresenter onSubject: self
 		)
@@ -106,11 +110,11 @@ public transactionDate = (
 public transactionType = (
 	^amount < 0 ifTrue: [ 'Withdrawal:' ] ifFalse: [ 'Deposit:' ]
 )
-public delete = (
-	delete: model
-)
 public edit = (
 	presenter enterPresenter: (BankTransactionEditPresenter onSubject: self)
+)
+public delete = (
+	parent delete: model.
 )
 ) : (
 )
@@ -154,14 +158,31 @@ onGetAllSuccess: event <Alien> = (
      presenter refresh. *)
     'onGetAllSuccess completed' out.
 )
+public transactionSubjects = (
+	^transactions collect: [ :t | BankTransactionSubject onModel: t parent: self ]
+)
+public delete: o = (
+	delete: o 
+    	onComplete: [ :e | 
+        	transactions remove: o.
+            presenter refresh.
+            nil ] 
+        onError: [ :e | 
+        	presenter alert: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). 
+            nil ]
+)
 transact: amt = (| b s d |
 		d:: Date now.
 		b:: BankTransaction id: crypto randomUUID amount: amt onDate: d.
-        add: b.
-		model transact: b.
+        add: b
 )
-public transactionSubjects = (
-	^transactions collect: [ :t | BankTransactionSubject onModel: t ]
+public add: o = (
+        add: o
+        	onComplete: [ :e | 
+            	model transact: b.
+                presenter refresh.
+                nil ]
+            onError: [ :e | presenter alert: ((e at: 'error') at: 'message'). nil ]
 )
 ) : (
 )
@@ -177,11 +198,6 @@ isMyKind: p <Presenter> ^ <Boolean> = (
 transactionList = (
 			^column:  transactionPresenters.
 		)
-computeDigits: ds = (
-| s ::= 0. |
-	ds do: [:d | s:: (10 * s) + (d - 48)].
-	^s
-)
 newDepositInput ^ <Fragment> = (
   | cm = codeMirror: ''. |
   cm acceptResponse: [:ed |
@@ -225,20 +241,11 @@ header = ( | l = label: 'Your Money'. |
 logoBlock: body = (
 	^(padded: body with: { 100. 75. 100. 75. }) color: logoColor.
 )
-currentBalance ^<Fragment> = (| l = label: 'Balance: $'. b = label: subject balance. |
-	l visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
-	b visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
-			^row: { l. blank: 20. b }
-		)
 logoColor = (
 	^Color white
 )
 public refresh = (
 	updateGUI: [ ].
-)
-transactionsHeader = ( | l = label: 'Transactions'. |
-	l visual at: #style put: styleLabel.
-	^row: { l }.
 )
 depositLabel = (| lbl = label: 'Deposit:'. |
 	lbl visual at: #style put: styleLabel.
@@ -251,9 +258,6 @@ labelDeposit = (| lbl = label: 'Deposit:'. |
 labelWithdrawal = (| lbl =  label: 'Withdrawal:'. |
 	lbl visual at: #style put: labelStyle.
     ^lbl
-)
-labelStyle = (
-	^ 'font-family: sans-serif; fonsize: 125%; color: green'
 )
 labelTransactions = ( | lbl = label: 'Transactions'. |
 	lbl visual at: #style put: labelStyle.
@@ -281,6 +285,26 @@ transactionPresenters = (
 )
 majorHeadingColor = (
 	^Color r: 0.5 g: 0.5 b: 0.5 a: 1
+)
+labelStyle = (
+	^ 'font-family: sans-serif; font-size: 125%; color: green'
+)
+transactionsHeader = ( | lbl = label: 'Transactions'. |
+	lbl visual at: #style put: labelStyle.
+	^row: { lbl }.
+)
+computeDigits: ds = (
+	| n = (Number new: ds). |
+    ^n toPrecision: 2
+)
+currentBalance ^<Fragment> = (| lbl b bal n |
+	bal: subject balance. bal out.
+	n:: (Number new: bal) toFixed: 2. n out.
+	lbl:: label: 'Balance: $'.
+    lbl visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
+    b:: label: n.
+	b visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
+			^row: { lbl. blank: 20. b }
 )
 ) : (
 )
