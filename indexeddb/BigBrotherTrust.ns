@@ -21,10 +21,15 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 	public transactions = List new.
 |
 ) (
-public class BankTransaction id: uuid <UUID> amount: a <Number> onDate: d <Integer> = IDBObject uuid: uuid (
+public class BankTransaction id: uuid <UUID> 
+													amount: a <Number>
+                                                    onDate: d <Integer> 
+                                                    memo: m <String> = IDBObject uuid: uuid (
 	|
     amt = a.
     txDate = d.
+    memo = m.
+    reconciled = false.
     |
 ) (
 public transactionDate = (
@@ -35,7 +40,7 @@ public amount = (
 		)
 ) : (
 public new: array = (| a = Number new: (array at: 1). |
-	^self id: (array at: 0) amount: a onDate: (array at: 2)
+	^self id: (array at: 0) amount: a onDate: (array at: 2) memo: (array at: 3)
 )
 )
 class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
@@ -79,11 +84,11 @@ transactionRow = (
 deleteButton = (
 	^button: 'Delete' action: [ updateGUI: [ subject delete ] ]
 )
-editButton = (
-	^button: 'Edit' action: [ updateGUI: [ subject edit ] ]
-)
 transactionBlock: row = (
 	^(padded: row with: { 10. 10. 10. 10. }) color: (Color r: 0.99 g: 0.99 b: 0.99 a: 1).
+)
+editButton = (
+	^button: 'Edit' action: [ enterSubject: (BankTransactionEditSubject onModel: subject model parentSubject: subject) ]
 )
 ) : (
 )
@@ -110,11 +115,11 @@ public transactionDate = (
 public transactionType = (
 	^amount < 0 ifTrue: [ 'Withdrawal:' ] ifFalse: [ 'Deposit:' ]
 )
-public edit = (
-	presenter enterPresenter: (BankTransactionEditPresenter onSubject: self)
-)
 public delete = (
 	parent delete: model.
+)
+public edit = (
+	parent edit: model
 )
 ) : (
 )
@@ -135,28 +140,8 @@ public balance = (
 public deposit: amt = (
 	transact: amt.
 )
-public withdraw: amt = (
-	balance < amt ifTrue: [ ^Window alert: 'Insufficient funds available' ].
-	transact: (amt * -1).
-)
 modelClasses = (
 	^{ BankTransaction. }
-)
-onGetAllSuccess: event <Alien> = (
-	| tx = super onGetAllSuccess: event. |
-    tx do: [ :t | transactions add: t ].
-    presenter refresh.
-	(* | r = (event at: #target) at: #result. src = (event at: #target) at: 'source'. |
-    ('GetAll source: ', (src at: 'name')) out.
-    1 to: (r at: #length) do: [ :i | | b a d o |
-    	o:: r at: (i - 1).
-    	a:: o at: 'amt'.
-        d:: (o at: 'txDate').
-        b:: BankTransaction amount: a onDate: d.
-        transactions add: b.
-     ].
-     presenter refresh. *)
-    'onGetAllSuccess completed' out.
 )
 public transactionSubjects = (
 	^transactions collect: [ :t | BankTransactionSubject onModel: t parent: self ]
@@ -171,18 +156,31 @@ public delete: o = (
         	presenter alert: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). 
             nil ]
 )
+public edit: transaction = (
+	presenter enterSubject: (BankTransactionEditSubject onModel: transaction parentSubject: self)
+)
 transact: amt = (| b s d |
 		d:: Date now.
-		b:: BankTransaction id: crypto randomUUID amount: amt onDate: d.
+		b:: BankTransaction id: crypto randomUUID amount: amt onDate: d memo: ''.
         add: b
+)
+public withdraw: amt = ( | a = Number parseFloat: amt. |
+	balance < a ifTrue: [ ^Window alert: 'Insufficient funds available' ].
+	transact:: (Number new: (a * -1)) toFixed: 2.
 )
 public add: b <BankTransaction> = (
         add: b
         	onComplete: [ :e | 
+            	'Tx complete' out.
             	model transact: b.
                 presenter refresh.
                 nil ]
             onError: [ :e | presenter alert: ((e at: 'error') at: 'message'). nil ]
+)
+onGetAllSuccess: event <Alien> = (
+	| txs = super onGetAll: event. |
+    txs do: [ :tx | transactions add: tx ].
+    presenter refresh.
 )
 ) : (
 )
@@ -303,13 +301,12 @@ currentBalance ^<Fragment> = (| lbl b bal n |
 			^row: { lbl. blank: 20. b }
 )
 computeDigits: ds = (
-	| n |
-    [n:: Number new: ds ] on: Error do: [ :e | ^e ]. 
-   ^n toFixed: 2
+	| n = [ Number parseFloat: ds ] on: Error do: [ :e | alert: 'Error: ', (e at: #error) at: #message. ^0 ]. |
+   ^(Number new: n) toFixed: 2
 )
 ) : (
 )
-class BankTransactionEditPresenter onSubject: s = Presenter onSubject: s (
+public class BankTransactionEditPresenter onSubject: s = Presenter onSubject: s (
 ) (
 ) : (
 isMyKind: p = (
@@ -336,6 +333,26 @@ saveButton = (
 )
 canxButton = (
 )
+)
+public class BankTransactionEditSubject onModel: m <BankTransaction> parentSubject: s = Subject onModel: m (
+	| parentSubject = s. |
+) (
+isMyKind: p = (
+	^p isKindOfBankTransationEditSubject
+)
+isKindOfBankTransactionEditSubject = (
+	^true
+)
+public save = (
+	parentSubject save: model
+)
+public createPresenter = (
+	^BankTransactionEditPresenter onSubject: self
+)
+public cancel = (
+	presenter enterSubject: parentSubject
+)
+) : (
 )
 public transact: b <BankTransaction> = (
 	^transactions add: b
