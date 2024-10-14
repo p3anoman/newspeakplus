@@ -1,0 +1,10 @@
+Newspeak3
+'Root'
+class AudioApp packageUsing: manifest = (
+	|
+	AudioAPI = manifest AudioAPI.
+    IndexedDB = manifest IndexedDB.
+	|
+) (
+) : (
+)

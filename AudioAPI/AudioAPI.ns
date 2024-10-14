@@ -1,0 +1,44 @@
+Newspeak3
+'Root'
+class AudioAPI usingPlatform: platform withIndexedDB: idb <IndexedDB> = (
+	|
+    private List = platform collections List.
+    private Map = platform collections Map.
+    private Subject = platform hopscotch core Subject.
+    private Presenter = platform hopscotch core Presenter.
+
+    public Window = platform js global.
+    public JSObject = Window at: 'Object'.
+    public indexedDB = idb.
+    public IDBObject = idb IDBObject.
+    public IDBSubject = Subject mixinApply: idb IDBSubject.
+
+    wavetables <Map> = Map new.
+    oscillator
+    sweepPass
+    |
+) (
+class AudioPresenter onSubject: s = Presenter onSubject: s (
+) (
+) : (
+)
+class AudioSubject onModel: m = IDBSubject onModel: m (
+) (
+) : (
+)
+public class Wavetable = (
+	|
+    name
+	real = List new.
+	imag = List new.
+	|
+) (
+) : (
+)
+public wavetable: wavename = (
+	| wave  |
+   (Window fetch: 'http://localhost:8077/waves?get=', wavename) then: [:r | r json then: [ :j | wave: j ] ].
+    ^wave
+)
+) : (
+)

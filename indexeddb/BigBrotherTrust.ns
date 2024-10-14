@@ -31,11 +31,11 @@ public transactionDate = (
 			^(Date new: txDate) toDateString
 		)
 public amount = (
-			^amt
+			^Number parseFloat: amt
 		)
 ) : (
-public new: array = (
-	^self id: (array at: 0) amount: (array at: 1) onDate: (array at: 2)
+public new: array = (| a = Number new: (array at: 1). |
+	^self id: (array at: 0) amount: a onDate: (array at: 2)
 )
 )
 class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
@@ -176,8 +176,8 @@ transact: amt = (| b s d |
 		b:: BankTransaction id: crypto randomUUID amount: amt onDate: d.
         add: b
 )
-public add: o = (
-        add: o
+public add: b <BankTransaction> = (
+        add: b
         	onComplete: [ :e | 
             	model transact: b.
                 presenter refresh.
@@ -293,10 +293,6 @@ transactionsHeader = ( | lbl = label: 'Transactions'. |
 	lbl visual at: #style put: labelStyle.
 	^row: { lbl }.
 )
-computeDigits: ds = (
-	| n = (Number new: ds). |
-    ^n toPrecision: 2
-)
 currentBalance ^<Fragment> = (| lbl b bal n |
 	bal: subject balance. bal out.
 	n:: (Number new: bal) toFixed: 2. n out.
@@ -305,6 +301,11 @@ currentBalance ^<Fragment> = (| lbl b bal n |
     b:: label: n.
 	b visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
 			^row: { lbl. blank: 20. b }
+)
+computeDigits: ds = (
+	| n |
+    [n:: Number new: ds ] on: Error do: [ :e | ^e ]. 
+   ^n toFixed: 2
 )
 ) : (
 )
@@ -340,7 +341,7 @@ public transact: b <BankTransaction> = (
 	^transactions add: b
 )
 public balance = (
-		^transactions inject: 0 into: [ :s :t | s + t amount ].
+		^transactions inject: 0 into: [ :s :t | s + (t amount) ].
 	)
 ) : (
 )

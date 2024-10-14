@@ -7,6 +7,8 @@ public class IndexedDB usingPlatform: platform = (
 			IDBSubject is meant to be used as a mixin on your application subject. Some methods need to be overriden in the current incarnation.
 			Model classes need to subclass IDBObject giving them the uuid slot and and the asJSObject method.
         	Implement the modelClasses method in your Subject/Top level class. An IDBObjectStore will be created for each class.
+            Copyright 2024 John McKeon.
+            MIT License. Use at your own risk.
     	*)
     public List = platform collections List.
     private ObjectMirror = platform mirrors ObjectMirror.
@@ -19,7 +21,7 @@ public class IndexedDB usingPlatform: platform = (
 ) (
 public class IDBObject uuid: id = (
 	|
-	uuid = id.
+	public uuid = id.
 	|
 ) (
 public asJSObject = (
@@ -52,121 +54,14 @@ public class IDBSubject = (
  db <Alien>
  |
 ) (
-onAddSuccess: event <Alien> = (
-	'Add succeeded' out.
-)
-get: aUUID = (
-)
-getAll = (
-)
 modelClasses = (
 	^subclassResponsibility
-)
-public openDB: version <Integer> = (
-	|
-    cm = (ObjectMirror reflecting: model) getClass.
-	request	= indexedDB open: cm mixin name version: version.
-    |
-    request addEventListener: 'upgradeneeded' with: [ :e | onUpgradeNeeded: e. nil ].
-    request addEventListener: 'blocked' with: [ :e | onBlocked: e. nil ].
-    request addEventListener: 'success' with: [ :e | onOpenSuccess: e. nil ].
-    request addEventListener: 'error' with: [ :e | (e at: #error) out. nil ].
-	'IDBSubject openDB called' out.
 )
 onBlocked: e = (
 	'Blocked triggered' out.
 )
-onTxComplete: event <Alien> = (
-	'Transaction complete triggered' out.
-)
-onTxError: e <Alien> = (
-	'Transaction error triggered' out.
-)
 public openDB = (
 	openDB: model version.
-)
-onUpgradeNeeded: event <Alien> = (| o = JSObject new. |
-    db::  (event at: #target) at: #result.
-	o  at: 'keyPath' put: 'uuid'.
-   	modelClasses do: [ :m | | cm = ClassMirror reflecting: m. |
-		db createObjectStore: cm mixin name with: o.
-    ].
-    'upgradeneeded triggered' out.
-)
-onOpenSuccess: event <Alien> = (
-	'Open DB succeeded' out.
-    db:: (event at: #target) at: #result.
-    modelClasses do: [ :m |
-		| tx store req cm = ClassMirror reflecting: m. |
-    	tx:: db transaction: cm mixin name for: 'readonly'.
-   		tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    	store:: tx objectStore: cm mixin name.
-    	req: store getAll.
-    	req addEventListener: 'success' handler: [ :e | onGetAllSuccess: e. nil ].
-    ].
-)
-onGetAllSuccess: event <Alien> = (
-	|
-    tgt = event at: #target.
-    r = tgt at: #result.
-    src = (tgt at: 'source') at: 'name'.
-    modelClass
-    rslt = List new.
-    |
-    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
-    modelClass isNil ifTrue: [ 'model class not found' out. ^self ].
-    1 to: (r at: #length) do: [ :i | | m o |
-    	o:: r at: (i - 1).
-        m:: modelClass new: (JSObject values: o).
-        rslt add: m.
-     ].
-     ^rslt
-)
-add: o = (
-	|
-    m = ObjectMirror reflecting: o.
-	s = m getClass mixin name.
-    tx
-    store
-    req
-    |
-    (* Create the UUID key for the model
-    m setSlot: 'uuid' to: crypto randomUUID. *)
-
-    (* Create the IDBTransaction *)
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    tx addEventListener: 'error' handler: [ :e | onTxError: e. nil ].
-
-    (* Get the IDBObjectStore from the transaction *)
-    store:: tx objectStore: s.
-
-    (* Store the model object *)
-    req:: store add: o asJSObject.
-    req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
-)
-add: o onComplete: completeHandler onError: errorBlock = (
-	|
-    m = ObjectMirror reflecting: o.
-	s = m getClass mixin name.
-    tx
-    store
-    req
-    |
-    (* Create the UUID key for the model
-    m setSlot: 'uuid' to: crypto randomUUID. *)
-
-    (* Create the IDBTransaction *)
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: completeBlock. (* [ :e | onTxComplete: e. nil ]. *)
-    tx addEventListener: 'error' handler: errorBlock. (* [ :e | onTxError: e. nil ]. *)
-
-    (* Get the IDBObjectStore from the transaction *)
-    store:: tx objectStore: s.
-
-    (* Store the model object *)
-    req:: store add: o asJSObject.
-    req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
 )
 put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
 	|
@@ -180,9 +75,6 @@ put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
     store:: tx objectStore: s.
     store put: o asJSObject.
 )
-delete: o = (
-	delete: o onComplete: [ :e | onTxComplete: e. nil ] onError: [ :e | onTxError: e. nil ].
-)
 delete: o onComplete: completeBlock onError: errorBlock = (
 	|
 	s = (ObjectMirror reflecting: o) getClass mixin name.
@@ -195,8 +87,120 @@ delete: o onComplete: completeBlock onError: errorBlock = (
     store:: tx objectStore: s.
     store delete: o uuid.
 )
+add: o <IDBObject> = (
+	add: o onComplete: [ :e | ] onError: [ :e | ]
+)
+add: o <IDBObject> onComplete: completeHandler onError: errorHandler = (
+	|
+    m = ObjectMirror reflecting: o.
+	s = m getClass mixin name.
+    tx
+    store
+    req
+    |
+    (* Create the UUID key for the model
+    m setSlot: 'uuid' to: crypto randomUUID. *)
+
+    (* Create the IDBTransaction *)
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: completeHandler.
+    tx addEventListener: 'error' handler: errorHandler.
+
+    (* Get the IDBObjectStore from the transaction *)
+    store:: tx objectStore: s.
+
+    (* Store the model object *)
+    req:: store add: o asJSObject.
+    req addEventListener: 'success' handler: [ :e | self onAddSuccess: e. nil ]
+)
+delete: o <IDBObject> = (
+	delete: o onComplete: [ :e | ] onError: [ :e | ]
+)
 put: o <IDBObject> = (
-	put: o onComplete: [ :e | onTxComplete: e. nil ] onError: [ :e | onTxError: e. nil ].
+	put: o onComplete: [ :e | ] onError: [ :e | ]
+)
+onOpenSuccess: event <Alien> = (
+    (* The default 'success' handler for the open function. *)
+    (* By default, we call getAll to retrieve all model objects for all classes returned in response the modelClasses message. *)
+    (* This behavior can be overridden in the application's Subject *)
+	'Open DB succeeded' out.
+    db:: (event at: #target) at: #result.
+    modelClasses do: [ :m |
+		| tx store req cm = ClassMirror reflecting: m. |
+    	tx:: db transaction: cm mixin name for: 'readonly'.
+   		tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    	store:: tx objectStore: cm mixin name.
+    	req: store getAll.
+    	req addEventListener: 'success' handler: [ :e | onGetAllSuccess: e. nil ].
+    ].
+)
+onGetAllSuccess: event <Alien> ^ <List[IDBObject]> = (
+	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
+    (* Returns an array of one model's instances. The model class used for instantiation is determined by the event source. *)
+    (* The application WILL need to override this method calling 'super' to obtain the data returned. *)
+	|
+    tgt = event at: #target.
+    r = tgt at: #result.
+    src = (tgt at: 'source') at: 'name'.
+    modelClass
+    rslt = List new.
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
+    1 to: (r at: #length) do: [ :i | | m o |
+    	o:: r at: (i - 1).
+        m:: modelClass new: (JSObject values: o).
+        rslt add: m.
+     ].
+     ^rslt
+)
+onTxError: event <Alien> = (
+	(* This is the default handler for error events generated by transactions used in the onOpenSuccess handler. *)
+	(* Application subjects can override this handler. *)
+	'Transaction error triggered' out.
+)
+onTxComplete: event <Alien> = (
+	(* This is the default handler for completion events generated by transactions used in the onOpenSuccess handler. *)
+	(* Application subjects can override this handler. *)
+	'Transaction complete triggered' out.
+)
+get: aUUID forClass: c <IDBObject> onSuccess: successHandler = (
+		| tx store req storeName = (ClassMirror reflecting: c) mixin name. |
+    	tx:: db transaction: storeName for: 'readonly'.
+   		tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    	store:: tx objectStore: storeName.
+    	req:: store get: aUUID.
+    	req addEventListener: 'success' handler: successHandler.
+)
+getAllForClass: c <IDBObject> onSuccess: successHandler = (
+		| tx store req storeName = (ClassMirror reflecting: c) mixin name. |
+    	tx:: db transaction: storeName for: 'readonly'.
+   		tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
+    	store:: tx objectStore: storeName.
+    	req:: store getAll.
+    	req addEventListener: 'success' handler: successHandler.
+)
+onUpgradeNeeded: event <Alien> = (| o = JSObject new. |
+	(* The default handler for the 'upgradeneeded' event generated on version change. *)
+    (* This default 'Version 1' creates the required IDBObjectStores according to the classes returned by the modelClasses method as overridden by the application Subject *)
+    (* This method plays a central role in n making database/model schema changes throughout the application lifecycle. *)
+    db::  (event at: #target) at: #result.
+	o  at: 'keyPath' put: 'uuid'.
+   	modelClasses do: [ :m | | cm = ClassMirror reflecting: m. |
+		db createObjectStore: cm mixin name with: o.
+    ].
+    'upgradeneeded triggered' out.
+)
+public openDB: version <Integer> = (
+	|
+    cm = (ObjectMirror reflecting: model) getClass.
+	request	= indexedDB open: cm mixin name version: version.
+    |
+    request addEventListener: 'upgradeneeded' with: [ :e | onUpgradeNeeded: e. nil ].
+    request addEventListener: 'blocked' with: [ :e | onBlocked: e. nil ].
+    request addEventListener: 'success' with: [ :e | onOpenSuccess: e. nil ].
+    request addEventListener: 'error' with: [ :e | Error signal: ((e at: #error) at: #message). nil ].
+	'IDBSubject openDB called' out.
 )
 ) : (
 )
