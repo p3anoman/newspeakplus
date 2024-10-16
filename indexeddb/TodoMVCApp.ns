@@ -1,0 +1,19 @@
+Newspeak3
+'Root'
+class TodoMVCApp packageUsing: manifest = (
+	|
+	private TodoMVC = manifest TodoMVC.
+    private IndexedDB = manifest IndexedDB.
+    |
+) (
+public main: platform <Platform> args: args = (
+	|   
+    idb = IndexedDB usingPlatform: platform.
+	todos = TodoMVC usingPlatform: platform indexedDB: idb.
+    subject = todos TodoMVCSubject new.
+    |
+    subject openDB: 1.
+	platform hopscotch HopscotchWindow openSubject: subject
+)
+) : (
+)
