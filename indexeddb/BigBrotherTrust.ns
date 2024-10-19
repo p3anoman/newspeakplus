@@ -8,12 +8,12 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 	private Presenter = platform hopscotch core Presenter.
     private Subject = platform hopscotch core Subject.
 
-    public JSObject = platform js global at: 'Object'.
+	public JSObject = platform js global at: 'Object'.
     private Date = platform js global at: 'Date'.
-    private Number = platform js global at: 'Number'.
+    private JSNumber = platform js global at: 'Number'.
     private crypto = platform js global at: 'crypto'.
 
-	private indexedDB = idb. (* IndexedDB usingPlatform: platform. *)
+	private indexedDB = idb.
     private IDBObject = indexedDB IDBObject.
     private IDBSubject = platform hopscotch core Subject mixinApply: indexedDB IDBSubject.
 
@@ -22,25 +22,22 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 |
 ) (
 public class BankTransaction id: uuid <UUID> 
-													amount: a <Number>
+													amount: a <String>
                                                     onDate: d <Integer> 
                                                     memo: m <String> = IDBObject uuid: uuid (
 	|
-    amt = a.
-    txDate = d.
-    memo = m.
-    reconciled = false.
+    public amount = a.
+    public txDate = d.
+    public memo = m.
+    public reconciled = false.
     |
 ) (
 public transactionDate = (
 			^(Date new: txDate) toDateString
 		)
-public amount = (
-			^Number parseFloat: amt
-		)
 ) : (
-public new: array = (| a = Number new: (array at: 1). |
-	^self id: (array at: 0) amount: a onDate: (array at: 2) memo: (array at: 3)
+public new: array = (
+	^self id: (array at: 0) amount: (array at: 1) onDate: (array at: 2) memo: (array at: 3)
 )
 )
 class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
@@ -51,9 +48,6 @@ isMyKind: p <Presenter> ^ <Boolean> = (
 isKindOfBankTransactionPresenter = (
 			^true
 		)
-public definition ^ <Fragment> = (
-	^transactionBlock: transactionRow
-)
 dateColumn= (| lbl = label: subject transactionDate. |
 	lbl visual at: 'style' put: style.
 	^column: { lbl }
@@ -65,22 +59,6 @@ typeColumn = ( | lbl = label: subject transactionType. |
 style = (
 	^'font-family: sans-serif; font-size: 110%; color: slateGray'
 )
-amountColumn = (| lbl = label: subject amount. |
-	lbl visual at: 'style' put: style, 'text-align: right'.
-	^column: { lbl }
-)
-transactionRow = (
-	^row: {  
-			dateColumn.
-            blank: 100.
-            typeColumn.
-            blank: 100.
-            amountColumn.
-            blank: 200.
-            editButton.
-            deleteButton.
-	}
-)
 deleteButton = (
 	^button: 'Delete' action: [ updateGUI: [ subject delete ] ]
 )
@@ -89,6 +67,36 @@ transactionBlock: row = (
 )
 editButton = (
 	^button: 'Edit' action: [ enterSubject: (BankTransactionEditSubject onModel: subject model parentSubject: subject) ]
+)
+amountColumn = (| lbl = label: ((JSNumber new: (subject amount / 100)) toFixed: 2). |
+	lbl visual at: 'style' put: style, 'text-align: right'.
+	^column: { lbl }
+)
+reconciledColumn = (
+	^column: { checkbox: 'Reconciled' value: subject reconciled action: [ :ck | subject toggleReconciled ] }
+)
+memoColumn = ( | lbl = label: subject memo. |
+	lbl visual at: 'style' put: style.
+	^column: { lbl }
+)
+definition ^ <Fragment> = (
+	^transactionBlock: transactionRow
+)
+transactionRow = (
+	^row: {  
+			dateColumn.
+            blank: 50.
+            typeColumn.
+            blank: 50.
+            memoColumn.
+            blank: 50.
+            amountColumn.
+            blank: 100.
+            reconciledColumn.
+            blank: 100.
+            editButton.
+            deleteButton.
+	}
 )
 ) : (
 )
@@ -120,6 +128,15 @@ public delete = (
 )
 public edit = (
 	parent edit: model
+)
+toggleReconciled = (
+	model reconciled ifFalse: [ model reconciled: true ]
+)
+public memo = (
+	^model memo
+)
+public reconciled = (
+	^model reconciled
 )
 ) : (
 )
@@ -177,7 +194,7 @@ public add: b <BankTransaction> = (
                 nil ]
             onError: [ :e | presenter alert: ((e at: 'error') at: 'message'). nil ]
 )
-onGetAllSuccess: event <Alien> = (
+onGetAll: event <Alien> = (
 	| txs = super onGetAll: event. |
     txs do: [ :tx | transactions add: tx ].
     presenter refresh.
@@ -218,9 +235,6 @@ newWithdrawalInput ^ <Fragment> = (
 	].
   ^cm
 )
-loadTx = (
-	^subject loadTx
-)
 minorHeadingBlock: body = (
 	^(padded: body with: {50. 25. 25. 25.})
 	color: minorHeadingColor.
@@ -244,10 +258,6 @@ logoColor = (
 )
 public refresh = (
 	updateGUI: [ ].
-)
-depositLabel = (| lbl = label: 'Deposit:'. |
-	lbl visual at: #style put: styleLabel.
-    ^lbl
 )
 labelDeposit = (| lbl = label: 'Deposit:'. |
 	lbl visual at: #style put: labelStyle.
@@ -291,18 +301,18 @@ transactionsHeader = ( | lbl = label: 'Transactions'. |
 	lbl visual at: #style put: labelStyle.
 	^row: { lbl }.
 )
+computeDigits: ds = (
+	| n = [ Float parse: ds ] on: Error do: [ :e | alert: 'Error: ', (e at: #error) at: #message. ^0 ]. |
+   ^n * 100
+)
 currentBalance ^<Fragment> = (| lbl b bal n |
-	bal: subject balance. bal out.
-	n:: (Number new: bal) toFixed: 2. n out.
+	bal:: Float parse: ((subject balance / 100) printString).
+	n:: (JSNumber new: bal) toFixed: 2. n out.
 	lbl:: label: 'Balance: $'.
     lbl visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
     b:: label: n.
 	b visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
 			^row: { lbl. blank: 20. b }
-)
-computeDigits: ds = (
-	| n = [ Number parseFloat: ds ] on: Error do: [ :e | alert: 'Error: ', (e at: #error) at: #message. ^0 ]. |
-   ^(Number new: n) toFixed: 2
 )
 ) : (
 )
@@ -357,8 +367,10 @@ public cancel = (
 public transact: b <BankTransaction> = (
 	^transactions add: b
 )
-public balance = (
-		^transactions inject: 0 into: [ :s :t | s + (t amount) ].
+public balance = (| rslt = 0.0. |
+	(* 1 to: (transactions size) do: [ :i | rslt: rslt + ((transaction at: i) amount) ] .
+		^rslt *) 
+        ^transactions inject: 0.0 into: [ :s :t | s + t amount ].
 	)
 ) : (
 )
