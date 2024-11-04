@@ -63,18 +63,6 @@ onBlocked: e = (
 public openDB = (
 	openDB: model version.
 )
-put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
-	|
-	s = (ObjectMirror reflecting: o) getClass mixin name.
-    tx
-    store
-    |
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: completeBlock. (*  [ :e | onTxComplete: e. nil ]. *)
-    tx addEventListener: 'error' handler: errorBlock. (* [ :e | onTxError: e. nil ]. *)
-    store:: tx objectStore: s.
-    store put: o asJSObject.
-)
 delete: o onComplete: completeBlock onError: errorBlock = (
 	|
 	s = (ObjectMirror reflecting: o) getClass mixin name.
@@ -204,6 +192,23 @@ add: o <IDBObject> onComplete: completeHandler onError: errorHandler = (
 )
 onAdd: event = (
 	'Success' out.
+)
+onPut: event = (
+	'Put Success' out.
+)
+put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
+	|
+	s = (ObjectMirror reflecting: o) getClass mixin name.
+    tx
+    store
+    req
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
+    store:: tx objectStore: s.
+    req:: store put: o asJSObject.
+    req addEventListener: 'success' handler: [ :e | self onPut: e. nil ]
 )
 ) : (
 )

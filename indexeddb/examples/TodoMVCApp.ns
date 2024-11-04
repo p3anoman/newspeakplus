@@ -9,8 +9,8 @@ class TodoMVCApp packageUsing: manifest = (
 public main: platform <Platform> args: args = (
 	|   
     idb = IndexedDB usingPlatform: platform.
-	todos = TodoMVC usingPlatform: platform indexedDB: idb.
-    subject = todos TodoMVCSubject new.
+	todolist = TodoMVC usingPlatform: platform indexedDB: idb.
+    subject = todolist TodoMVCSubject onModel: todolist.
     |
     subject openDB: 1.
 	platform hopscotch HopscotchWindow openSubject: subject

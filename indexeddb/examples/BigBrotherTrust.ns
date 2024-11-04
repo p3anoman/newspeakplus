@@ -11,6 +11,7 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 	public JSObject = platform js global at: 'Object'.
     private Date = platform js global at: 'Date'.
     private JSNumber = platform js global at: 'Number'.
+    private Math = platform js global at: 'Math'.
     private crypto = platform js global at: 'crypto'.
 
 	private indexedDB = idb.
@@ -21,15 +22,16 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 	public transactions = List new.
 |
 ) (
-public class BankTransaction id: uuid <UUID> 
+public class BankTransaction id: uuid 
 													amount: a <String>
                                                     onDate: d <Integer> 
-                                                    memo: m <String> = IDBObject uuid: uuid (
+                                                    memo: m <String>
+                                                    reconciled: r <Boolean> = IDBObject uuid: uuid (
 	|
     public amount = a.
     public txDate = d.
-    public memo = m.
-    public reconciled = false.
+    public memo ::= m.
+    public reconciled ::= r.
     |
 ) (
 public transactionDate = (
@@ -37,7 +39,13 @@ public transactionDate = (
 		)
 ) : (
 public new: array = (
-	^self id: (array at: 0) amount: (array at: 1) onDate: (array at: 2) memo: (array at: 3)
+	^self id: (array at: 0) amount: (array at: 1) onDate: (array at: 2) memo: (array at: 3) reconciled: (array at: 4)
+)
+public amount: a = (
+	^id: crypto randomUUID amount: a
+)
+public id: id amount: a = (
+	^id: id amount: a onDate: Date now memo: '' reconciled: false.
 )
 )
 class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
@@ -62,18 +70,9 @@ style = (
 deleteButton = (
 	^button: 'Delete' action: [ updateGUI: [ subject delete ] ]
 )
-transactionBlock: row = (
-	^(padded: row with: { 10. 10. 10. 10. }) color: (Color r: 0.99 g: 0.99 b: 0.99 a: 1).
-)
-editButton = (
-	^button: 'Edit' action: [ enterSubject: (BankTransactionEditSubject onModel: subject model parentSubject: subject) ]
-)
 amountColumn = (| lbl = label: ((JSNumber new: (subject amount / 100)) toFixed: 2). |
 	lbl visual at: 'style' put: style, 'text-align: right'.
 	^column: { lbl }
-)
-reconciledColumn = (
-	^column: { checkbox: 'Reconciled' value: subject reconciled action: [ :ck | subject toggleReconciled ] }
 )
 memoColumn = ( | lbl = label: subject memo. |
 	lbl visual at: 'style' put: style.
@@ -97,6 +96,18 @@ transactionRow = (
             editButton.
             deleteButton.
 	}
+)
+transactionBlock: row = (
+	^(padded: row with: { 25. 5. 25. 5. }) color: (Color r: 0.99 g: 0.99 b: 0.99 a: 1).
+)
+editButton = (
+	^button: 'Edit' action: [
+    	| m = prompt: 'Edit memo' input: subject memo. |
+        updateGUI: [ subject edit: m ].
+    ]
+)
+reconciledColumn = (
+	^column: { checkbox: 'Reconciled' value: subject reconciled action: [ :ck | updateGUI: [ subject toggleReconciled ] ] }
 )
 ) : (
 )
@@ -129,14 +140,19 @@ public delete = (
 public edit = (
 	parent edit: model
 )
-toggleReconciled = (
-	model reconciled ifFalse: [ model reconciled: true ]
-)
 public memo = (
 	^model memo
 )
 public reconciled = (
 	^model reconciled
+)
+public edit: theMemo <String> = (
+	model memo: theMemo.
+    parent edit: model.
+)
+public toggleReconciled = (
+	(* Do not allow to "unreconcile" *)
+	model reconciled ifFalse: [ model reconciled: true. parent edit: model ]
 )
 ) : (
 )
@@ -154,38 +170,21 @@ deposits = (
 public balance = (
 		^model balance
 	)
-public deposit: amt = (
-	transact: amt.
-)
 modelClasses = (
 	^{ BankTransaction. }
 )
 public transactionSubjects = (
 	^transactions collect: [ :t | BankTransactionSubject onModel: t parent: self ]
 )
-public delete: o = (
-	delete: o 
-    	onComplete: [ :e | 
-        	transactions remove: o.
-            presenter refresh.
-            nil ] 
-        onError: [ :e | 
-        	presenter alert: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). 
-            nil ]
+onGetAll: event <Alien> = (
+	| txs = super onGetAll: event. |
+    txs do: [ :tx | transactions add: tx ].
+    presenter refresh.
 )
-public edit: transaction = (
-	presenter enterSubject: (BankTransactionEditSubject onModel: transaction parentSubject: self)
+public withdraw: amt = ( 
+	transact:: amt * -1
 )
-transact: amt = (| b s d |
-		d:: Date now.
-		b:: BankTransaction id: crypto randomUUID amount: amt onDate: d memo: ''.
-        add: b
-)
-public withdraw: amt = ( | a = Number parseFloat: amt. |
-	balance < a ifTrue: [ ^Window alert: 'Insufficient funds available' ].
-	transact:: (Number new: (a * -1)) toFixed: 2.
-)
-public add: b <BankTransaction> = (
+add: b <BankTransaction> = (
         add: b
         	onComplete: [ :e | 
             	'Tx complete' out.
@@ -194,10 +193,34 @@ public add: b <BankTransaction> = (
                 nil ]
             onError: [ :e | presenter alert: ((e at: 'error') at: 'message'). nil ]
 )
-onGetAll: event <Alien> = (
-	| txs = super onGetAll: event. |
-    txs do: [ :tx | transactions add: tx ].
-    presenter refresh.
+public test1000 = (
+	1 to: 1000 do: [ :i | | b a |
+    	b:: BankTransaction amount: (Math random: 100) * 100 * 100.
+    	super add: b ]
+)
+transact: amt withMemo: m = (| b s d |
+		d:: Date now.
+		b:: BankTransaction id: crypto randomUUID amount: amt onDate: d memo: m reconciled: false.
+        add: b
+)
+transact: amt = (
+		transact: amt withMemo: ''
+)
+public deposit: amt withMemo: m = (
+	transact: amt withMemo: m.
+)
+public deposit: amt = (
+	deposit: amt withMemo: ''.
+)
+public edit: transaction = (
+	put: transaction
+    	onComplete: [ :e | nil. ]
+        onError: [ :e | Error signal: ((e at: 'error') at: 'message'). nil. ]
+)
+public delete: o = (
+	delete: o 
+    	onComplete: [ :e | transactions remove: o.  nil ] 
+        onError: [ :e |  Error signal: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). nil ]
 )
 ) : (
 )
@@ -213,28 +236,6 @@ isMyKind: p <Presenter> ^ <Boolean> = (
 transactionList = (
 			^column:  transactionPresenters.
 		)
-newDepositInput ^ <Fragment> = (
-  | cm = codeMirror: ''. |
-  cm acceptResponse: [:ed |
-	updateGUI: [
-		subject deposit: (computeDigits: ed textBeingAccepted).
-		ed text: ''.
-		ed leaveEditState.
-		]
-	].
-  ^cm
-)
-newWithdrawalInput ^ <Fragment> = (
-  | cm = codeMirror: ''. |
-  cm acceptResponse: [:ed |
-	updateGUI: [
-		subject withdraw: (computeDigits: ed textBeingAccepted).
-		ed text: ''.
-		ed leaveEditState.
-		]
-	].
-  ^cm
-)
 minorHeadingBlock: body = (
 	^(padded: body with: {50. 25. 25. 25.})
 	color: minorHeadingColor.
@@ -259,34 +260,12 @@ logoColor = (
 public refresh = (
 	updateGUI: [ ].
 )
-labelDeposit = (| lbl = label: 'Deposit:'. |
-	lbl visual at: #style put: labelStyle.
-    ^lbl
-)
-labelWithdrawal = (| lbl =  label: 'Withdrawal:'. |
-	lbl visual at: #style put: labelStyle.
-    ^lbl
-)
 labelTransactions = ( | lbl = label: 'Transactions'. |
 	lbl visual at: #style put: labelStyle.
 	^ lbl
 )
 minorHeadingColor = (
 	^Color r: 0.8 g: 0.8 b: 0.8 a: 1.
-)
-public definition ^<Fragment> = (
-	^column: {
-    	logoBlock: logo.
-		majorHeadingBlock: header.
-		minorHeadingBlock: currentBalance.
-        row: {}.
-		row: { labelTransactions }.
-		transactionList.
-		row: { labelDeposit }.
-        row: { newDepositInput. }.
-		row: { labelWithdrawal }.
-		row: { newWithdrawalInput. }.
-    }
 )
 transactionPresenters = (
 	^subject transactionSubjects collect: [ :s | s presenter ]
@@ -301,10 +280,6 @@ transactionsHeader = ( | lbl = label: 'Transactions'. |
 	lbl visual at: #style put: labelStyle.
 	^row: { lbl }.
 )
-computeDigits: ds = (
-	| n = [ Float parse: ds ] on: Error do: [ :e | alert: 'Error: ', (e at: #error) at: #message. ^0 ]. |
-   ^n * 100
-)
 currentBalance ^<Fragment> = (| lbl b bal n |
 	bal:: Float parse: ((subject balance / 100) printString).
 	n:: (JSNumber new: bal) toFixed: 2. n out.
@@ -314,53 +289,61 @@ currentBalance ^<Fragment> = (| lbl b bal n |
 	b visual at: 'style' put: 'font-family: sans-serif; font-size: 150%; text-align: center'.
 			^row: { lbl. blank: 20. b }
 )
-) : (
+labelWithdrawal = (| lbl =  label: 'New Withdrawal:'. |
+	lbl visual at: #style put: labelStyle.
+    ^lbl
 )
-public class BankTransactionEditPresenter onSubject: s = Presenter onSubject: s (
-) (
-) : (
-isMyKind: p = (
-	^ p isKindOfBankTransactionEditPresenter
+labelDeposit = (| lbl = label: 'New Deposit:'. |
+	lbl visual at: #style put: labelStyle.
+    ^lbl
 )
-isKindOfBankTransactionEditPresenter = (
-	^true
+computeDigits: ds = (
+	| n |
+    '' = ds ifTrue: [ ^0 ].
+    n:: [ Float parse: ds ] on: Error do: [ n: 0 ].
+   ^n * 100
 )
-definition = (
+public definition ^<Fragment> = ( | r style |
 	^column: {
-    	row: { dateEdit }.
-    	row: { amtEdit }.
-        row: {
-        	saveButton.
-            canxButton.
-        }.
-    }
+    	logoBlock: logo.
+		majorHeadingBlock: header.
+		minorHeadingBlock: currentBalance.
+        inputRow.
+		row: { labelTransactions }.
+		transactionList.
+        row: {label: 'For entertainment purposes only. No warranty experssed or implied.' }.
+   }
 )
-dateEdit = (
+newWithdrawalInput ^ <Fragment> = (
+	^button: 'Record a withdrawal' action: [ | a m v |
+    	a:: prompt: 'Enter amount' input: ''. 
+        m:: prompt: 'Enter a memo' input: ''.
+        v:: computeDigits: a.
+        0 = v
+        	ifFalse: [  updateGUI: [subject withdraw: v withMemo: m ]]
+            ifTrue: [ alert: 'Invalid amount. Try again' ]
+	].
 )
-amtEdit = (
+newDepositInput ^ <Fragment> = (
+	^button: 'Record a deposit' action: [ | a m v |
+    	a:: prompt: 'Enter amount' input: ''. 
+        m:: prompt: 'Enter a memo' input: ''.
+        v:: computeDigits: a.
+        0 = v
+        	ifFalse: [  updateGUI: [subject deposit: v withMemo: m ]]
+            ifTrue: [ alert: 'Invalid amount. Try again' ]
+	].
 )
-saveButton = (
-)
-canxButton = (
-)
-)
-public class BankTransactionEditSubject onModel: m <BankTransaction> parentSubject: s = Subject onModel: m (
-	| parentSubject = s. |
-) (
-isMyKind: p = (
-	^p isKindOfBankTransationEditSubject
-)
-isKindOfBankTransactionEditSubject = (
-	^true
-)
-public save = (
-	parentSubject save: model
-)
-public createPresenter = (
-	^BankTransactionEditPresenter onSubject: self
-)
-public cancel = (
-	presenter enterSubject: parentSubject
+inputRow = (| r style |
+	r:: row: {
+    	padded: newDepositInput with: { 50. 10. 25. 10 }.
+        blank: 25. 
+        padded: newWithdrawalInput with: { 25. 10. 25. 10. }.
+        (* button: 'Test' action: [ subject test1000. updateGUI: [ ]] *)
+    }.
+	style:: r visual at: 'style'.
+	style setProperty: 'width' value: '100%'.
+    ^r
 )
 ) : (
 )
