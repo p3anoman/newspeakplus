@@ -1,0 +1,19 @@
+Newspeak3
+'Root'
+class Ginger packageUsing: manifest = (
+	|
+	GIN = manifest GIN.
+	|
+) (
+public main: platform args: args = (
+	|
+    g = GIN usingPlatform: platform.
+    s = g GINSubject onModel: g.
+    tmp
+    |
+    tmp:: s translate: 'Hello World'.
+    tmp out.
+	platform hopscotch HopscotchWindow openSubject: s.
+)
+) : (
+)

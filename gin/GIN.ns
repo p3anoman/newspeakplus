@@ -1,0 +1,84 @@
+Newspeak3
+'Root'
+class GIN usingPlatform: platform = (
+	(* Gemini In Newspeak *)
+    (* Goodle Built-in AI API challenge project *)
+    (* Copyright 2024 John McKeon *)
+	|
+    List = platform collections List.
+    Subject = platform hopscotch core Subject.
+    Presenter = platform hopscotch core Presenter.
+	JSObject = platform js global at: 'Object'.
+	ai = platform js global at: 'ai'.
+	translatorFactory = ai at: 'translator'.
+	translator_slot
+	|
+) (
+public class GINSubject onModel: m = Subject onModel: m (
+	|
+    public translation = ''.
+    |
+) (
+translator = (
+	^model translator
+)
+public createPresenter = (
+	^GINPresenter onSubject: self
+)
+isMyKind: p = (
+	^ p isKindOfGINSubject
+)
+isKindOfGINSubject = (
+	^true
+)
+public translate: s <String> = (| t |
+	s = '' ifTrue: [ ^translation: 'No input' ].
+    translator isNil ifTrue: [ ^translation: 'No translator available' ].
+    translation:: translator translate: s
+)
+) : (
+)
+class GINPresenter onSubject: s = Presenter onSubject: s (
+) (
+definition = (
+	^column: {
+    	ginput.
+        output.
+    }
+)
+ginput = (
+	| cm = codeMirror: 'Text to translate'. |
+ cm acceptResponse: [:ed |
+	updateGUI: [
+		subject translate: ed textBeingAccepted.
+		ed text: ''.
+		ed leaveEditState.
+		]
+	].
+  ^cm
+)
+output = (
+	label: subject translation
+)
+isKindOfGINPresenter = (
+	^true
+)
+isMyKind: p = (
+	^ p isKindOfGINPresenter
+)
+) : (
+)
+public getTranslator: onComplete = (
+	|  ru = JSObject new at: 'sourceLanguage' put: 'en'; at: 'targetLanguage' put: 'ru';yourself. |
+	(* blk = [ :t | translator: t ].  *)
+	(translatorFactory create: ru) then: [ :t | onComplete value: t ].
+)
+public translator = (
+	'GIN translator accessed' out.
+	translator_slot isNil
+    	ifTrue: [ getTranslator: [ :t | translator_slot: t ]].
+    translator_slot printString out.
+	^translator_slot
+)
+) : (
+)
