@@ -16,7 +16,7 @@ class GIN usingPlatform: platform = (
 ) (
 public class GINSubject onModel: m = Subject onModel: m (
 	|
-    public translation = ''.
+    public translation ::= ''.
     |
 ) (
 translator = (
@@ -68,17 +68,19 @@ isMyKind: p = (
 )
 ) : (
 )
-public getTranslator: onComplete = (
-	|  ru = JSObject new at: 'sourceLanguage' put: 'en'; at: 'targetLanguage' put: 'ru';yourself. |
-	(* blk = [ :t | translator: t ].  *)
-	(translatorFactory create: ru) then: [ :t | onComplete value: t ].
-)
 public translator = (
 	'GIN translator accessed' out.
 	translator_slot isNil
-    	ifTrue: [ getTranslator: [ :t | translator_slot: t ]].
+    	ifTrue: [ getTranslator: [ :t | translator_slot: t. nil ]].
     translator_slot printString out.
 	^translator_slot
+)
+public getTranslator: onComplete = (
+	|  ru = JSObject new at: 'sourceLanguage' put: 'en'; at: 'targetLanguage' put: 'ru';yourself. |
+	(* blk = [ :t | translator: t ].  *)
+	(translatorFactory create: ru) then: [ :t |
+    	translator_slot: t.
+        onComplete value: t. ].
 )
 ) : (
 )
