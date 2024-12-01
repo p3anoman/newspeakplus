@@ -11,9 +11,10 @@ public main: platform args: args = (
     s = g GINSubject onModel: g.
     tmp
     |
-    tmp:: s translate: 'Hello World'.
-    tmp out.
-	platform hopscotch HopscotchWindow openSubject: s.
+    g getTranslator: [ :t | 'Waiting for translator...' out. tmp: t.
+    	tmp out.
+    	(* s translate: 'Hello World'. *)
+	platform hopscotch HopscotchWindow openSubject: s. ]
 )
 ) : (
 )
