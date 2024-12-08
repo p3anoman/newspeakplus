@@ -1,18 +1,18 @@
 Newspeak3
 'Root'
-class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
+class BigBrotherTrust usingPlatform: p indexedDB: idb <IndexedDB>
+(* :exemplar: BigBrotherTrust usingPlatform: platform indexedDB: (IndexedDB usingPlatform: platform) *)
+= (
 |
-	private List = platform collections List.
-    private Color = platform graphics Color.
-    private Gradient = platform hopscotch Gradient.
-	private Presenter = platform hopscotch core Presenter.
-    private Subject = platform hopscotch core Subject.
+	private List = p collections List.
+    private Color = p graphics Color.
+    private Gradient = p hopscotch Gradient.
+	private Presenter = p hopscotch core Presenter.
+    private Subject = p hopscotch core Subject.
 
-	public JSObject = platform js global at: 'Object'.
-    private Date = platform js global at: 'Date'.
-    private JSNumber = platform js global at: 'Number'.
-    private Math = platform js global at: 'Math'.
-    private crypto = platform js global at: 'crypto'.
+	public JSObject = p js global at: 'Object'.
+    private Date = p js global at: 'Date'.
+    private JSNumber = p js global at: 'Number'.
 
 	private indexedDB = idb.
     private IDBObject = indexedDB IDBObject.
@@ -23,7 +23,7 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 |
 ) (
 public class BankTransaction amount: a <String>
-                                                    onDate: d <Integer> 
+                                                    onDate: d <Integer>
                                                     memo: m <String>
                                                     reconciled: r <Boolean> = IDBObject (
 	|
@@ -77,7 +77,7 @@ dateColumn= (| lbl = label: subject transactionDate. c |
     ^c
 )
 transactionRow = (
-	^row: {  
+	^row: {
 			dateColumn.
             blank: 50.
             typeColumn.
@@ -187,21 +187,16 @@ onGetAll: event <Alien> = (
 )
 add: b <BankTransaction> = (
         add: b
-        	onComplete: [ :e | 
+        	onComplete: [ :e |
             	'Tx complete' out.
             	model transact: b.
                 presenter refresh.
                 nil ]
             onError: [ :e | presenter alert: ((e at: 'error') at: 'message'). nil ]
 )
-public test1000 = (
-	1 to: 1000 do: [ :i | | b a |
-    	b:: BankTransaction amount: (Math random: 100) * 100 * 100.
-    	super add: b ]
-)
 transact: amt withMemo: m = (| b s d |
 		d:: Date now.
-		b:: BankTransaction id: crypto randomUUID amount: amt onDate: d memo: m reconciled: false.
+		b:: BankTransaction amount: amt onDate: d memo: m reconciled: false.
         add: b
 )
 transact: amt = (
@@ -219,15 +214,16 @@ public edit: transaction = (
         onError: [ :e | Error signal: ((e at: 'error') at: 'message'). nil. ]
 )
 public delete: o = (
-	delete: o 
-    	onComplete: [ :e | transactions remove: o.  nil ] 
+	delete: o
+    	onComplete: [ :e | transactions remove: o.  nil ]
         onError: [ :e |  Error signal: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). nil ]
 )
-public withdraw: amt = ( 
+public withdraw: amt = (
 	withdraw: amt withMemo: ''
 )
-public withdraw: amt withMemo: m = ( 
-	transact: (amt * -1) withMemo: m
+public withdraw: amt withMemo: m = (
+	amt > balance ifTrue: [ signal: 'Insufficient funds available.' ]
+	ifFalse: [ transact: (amt * -1) withMemo: m ]
 )
 ) : (
 )
@@ -303,19 +299,9 @@ computeDigits: ds = (
     n:: [ Float parse: ds ] on: Error do: [ n: 0 ].
    ^n * 100
 )
-newWithdrawalInput ^ <Fragment> = (
-	^button: 'Record a withdrawal' action: [ | a m v |
-    	a:: prompt: 'Enter amount' input: ''. 
-        m:: prompt: 'Enter a memo' input: ''.
-        v:: computeDigits: a.
-        0 = v
-        	ifFalse: [  updateGUI: [subject withdraw: v withMemo: m ]]
-            ifTrue: [ alert: 'Invalid amount. Try again' ]
-	].
-)
 newDepositInput ^ <Fragment> = (
 	^button: 'Record a deposit' action: [ | a m v |
-    	a:: prompt: 'Enter amount' input: ''. 
+    	a:: prompt: 'Enter amount' input: ''.
         m:: prompt: 'Enter a memo' input: ''.
         v:: computeDigits: a.
         0 = v
@@ -326,7 +312,7 @@ newDepositInput ^ <Fragment> = (
 inputRow = (| r style |
 	r:: row: {
     	padded: newDepositInput with: { 50. 10. 25. 10 }.
-        blank: 25. 
+        blank: 25.
         padded: newWithdrawalInput with: { 25. 10. 25. 10. }.
         (* button: 'Test' action: [ subject test1000. updateGUI: [ ]] *)
     }.
@@ -356,6 +342,17 @@ public definition ^<Fragment> = (
         row: {label: 'For entertainment purposes only. No warranty expressed or implied.' }.
    }
 )
+newWithdrawalInput ^ <Fragment> = (
+	^button: 'Record a withdrawal' action: [ | a m v |
+    	a:: prompt: 'Enter amount' input: ''.
+        v:: computeDigits: a.
+        (0 = v or: [ v > subject balance ])
+        	ifTrue: [ (0 = v) ifTrue: [ alert: 'Invalid input. Try again.' ]
+            						ifFalse: [ alert: 'Insufficient funds available.' ]]
+            ifFalse: [
+ 				m:: prompt: 'Enter a memo' input: ''.
+				updateGUI: [subject withdraw: v withMemo: m ]]]
+)
 ) : (
 )
 public transact: b <BankTransaction> = (
@@ -363,7 +360,7 @@ public transact: b <BankTransaction> = (
 )
 public balance = (| rslt = 0.0. |
 	(* 1 to: (transactions size) do: [ :i | rslt: rslt + ((transaction at: i) amount) ] .
-		^rslt *) 
+		^rslt *)
         ^transactions inject: 0.0 into: [ :s :t | s + t amount ].
 	)
 ) : (
