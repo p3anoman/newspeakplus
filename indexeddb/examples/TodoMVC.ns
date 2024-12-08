@@ -1,6 +1,8 @@
 Newspeak3
 'Root'
-class TodoMVC usingPlatform: p <HopscotchPlatform> indexedDB: idb <IndexedDB> = (
+class TodoMVC usingPlatform: p <HopscotchPlatform> indexedDB: idb <IndexedDB> 
+(* :exemplar: TodoMVC usingPlatform: platform indexedDB: (IndexedDB usingPlatform: platform) *)
+= (
   |
   (* imports *)
   private List = p collections List.
@@ -9,15 +11,15 @@ class TodoMVC usingPlatform: p <HopscotchPlatform> indexedDB: idb <IndexedDB> = 
   
   private indexedDB = idb.
   private IDBObject = idb IDBObject.
-  private IDBSubject = Subject mixinApply: idb IDBSubject.
+  private IDBSubject = idb IDBSubject.
   
-  private crypto = p js global at: 'crypto'.
   public todos = List new.
   |
 ) (
-class TodoItem uuid: u named: s <String> completed: c = IDBObject uuid: u (
+class TodoItem named: s <String> completed: c <Boolean> = IDBObject (
+(* :exemplar: TodoItem named: 'exemplar item' completed: true *)
 |
-	public description ::= s.
+	public description <String> ::= s.
 	public completed <Boolean> ::= c.
 |
 ) (
@@ -236,19 +238,19 @@ onGetAll: e = (
     ts do: [ :t | model todos add: t ].
     presenter refresh.
 )
+public put: todo <TodoItem> = (
+	super put: todo
+)
 public addTodoNamed: n <String> = (
-	| newTodo = TodoItem uuid: crypto randomUUID named: n completed: false. |
+	| newTodo = TodoItem named: n completed: false. |
 	add: newTodo 
 		onComplete: [ :e | model todos add: newTodo. presenter refresh. nil ]
 		onError: [ :e | presenter showAlert: 'Failed to add new Todo'. nil ]
 )
-public delete: todo = (
+public delete: todo <TodoItem> = (
 	delete: todo
     	onComplete: [ :e | model todos remove: todo. presenter refresh. nil ]
         onError: [ :e | presenter showAlert: 'Failed to delete Todo: ', ((e at: 'error') at: 'message'). nil ]
-)
-public put: todo <TodoItem> = (
-	super put: todo
 )
 ) : (
 )
