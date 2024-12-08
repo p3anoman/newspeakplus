@@ -1,6 +1,6 @@
 Newspeak3
 'Root'
-public class IndexedDB usingPlatform: platform = (
+public class IndexedDB usingPlatform: p = (
 	|
 		(*
         	Implements the browser API of the same name.
@@ -10,25 +10,26 @@ public class IndexedDB usingPlatform: platform = (
             Copyright 2024 John McKeon.
             MIT License. Use at your own risk.
     	*)
-    public List = platform collections List.
-    private ObjectMirror = platform mirrors ObjectMirror.
-    private ClassMirror = platform mirrors ClassMirror.
-	private JSObject = platform js global at: 'Object'.
-    
+    public List = p collections List.
+    private ObjectMirror = p mirrors ObjectMirror.
+    private ClassMirror = p mirrors ClassMirror.
+    private Subject = p hopscotch core Subject.
+
+	private JSObject = p js global at: 'Object'.
+    private crypto = p js global at: 'crypto'.
+
     (* The browser's IndexedDB API object *)
-    private indexedDB <Alien> = platform js global at: 'indexedDB'.
+    private indexedDB <Alien> = p js global at: 'indexedDB'.
 	|
 ) (
-public class IDBObject uuid: id = (
-	|
-	public uuid = id.
-	|
+public class IDBObject new = (
+	| public uuid = crypto randomUUID. |
 ) (
-public asJSObject = (
+public asJSObject ^<Alien> = (
 	|
-    m = ObjectMirror reflecting: self.
-    cm = m getClass.
-    o = JSObject new.
+    m <ObjectMirror> = ObjectMirror reflecting: self.
+    cm <ClassMirror> = m getClass.
+    o <Alien> = JSObject new.
     |
 	cm slots do: [ :slot | | n v |
     	n: slot name.
@@ -38,16 +39,31 @@ public asJSObject = (
 	^o
 )
 ) : (
-public new: array = (
-	^subclassResponsibility
+private class: klass adoptInstance: object = (
+	(* :literalmessage: primitive: 134 *)
+	halt.
+)
+public newInstance: o ofClass: k = (
+	|
+	keys = JSObject keys: o.
+	slotCount = keys at: 'length'.
+	values = JSObject values: o.
+	tmpClass = TemporaryClass withFormat: slotCount.
+	instance = tmpClass victoryFuel.
+	mirror <ObjectMirror>
+	|
+	class: k adoptInstance: instance.
+	mirror:: ObjectMirror reflecting: instance.
+	1 to: slotCount do: [ :i | mirror setSlot: (keys at: i-1) to: (values at: i-1). ].
+	^instance
 )
 )
-public class IDBSubject = (
+public class IDBSubject onModel: m = Subject onModel: m (
 (*
-	This class is to be used as a mixin whose many event handlers can be overriden by your application subject.
+	This class is to be used to as the subclass of your main application subject.
 	Override onUpgradeNeeded to create the objectStores needed to store your model objects.
     Overrided onSuccess to load data?
-    Currently, stores use the class name of the objects to be stored using IDBSubject's add: put: and delete: methods. Custom behavior would require overriding these.
+    Stores are automatically created for the classes returned by the application subject's modelClasses method.
 *)
  |
  (* The connection to the application's database *)
@@ -147,26 +163,6 @@ onOpen: event <Alien> = (
     	req addEventListener: 'success' handler: [ :e | onGetAll: e. nil ].
     ].
 )
-onGetAll: event <Alien> ^ <List[IDBObject]> = (
-	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
-    (* Returns an array of one model's instances. The model class used for instantiation is determined by the event source. *)
-    (* The application WILL need to override this method calling 'super' to obtain the data returned. *)
-	|
-    tgt = event at: #target.
-    r = tgt at: #result.
-    src = (tgt at: 'source') at: 'name'.
-    modelClass
-    rslt = List new.
-    |
-    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
-    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
-    1 to: (r at: #length) do: [ :i | | m o |
-    	o:: r at: (i - 1).
-        m:: modelClass new: (JSObject values: o).
-        rslt add: m.
-     ].
-     ^rslt
-)
 add: o <IDBObject> onComplete: completeHandler onError: errorHandler = (
 	|
     m = ObjectMirror reflecting: o.
@@ -209,6 +205,41 @@ put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
     store:: tx objectStore: s.
     req:: store put: o asJSObject.
     req addEventListener: 'success' handler: [ :e | self onPut: e. nil ]
+)
+onGetAll: event <Alien> ^ <List[IDBObject]> = (
+	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
+    (* Returns a list of one model classes's instances. The model class used for instantiation is determined by the event source. *)
+	|
+    target = event at: #target.
+    r <Array> = target at: #result.
+    src = (target at: 'source') at: 'name'.
+    modelClass
+    rslt = List new.
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
+    1 to: (r at: #length) do: [ :i | | m o |
+    	o:: r at: (i - 1).
+        m:: IDBObject newInstance: o ofClass: modelClass.
+        rslt add: m.
+     ].
+     ^rslt
+)
+) : (
+)
+class TemporaryClass withFormat: fmt = (|
+	superclass = Object.
+	methods = {}.
+	enclosingObject = nil.
+	mixin = nil.
+	classIndex
+	format = fmt.
+	public name = 'IDBVictoryFuelObject'.
+	subclasses
+|) (
+public victoryFuel = (
+	(* :literalmessage: primitive: 34 *)
+	halt.
 )
 ) : (
 )

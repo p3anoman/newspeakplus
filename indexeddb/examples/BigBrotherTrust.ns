@@ -16,17 +16,16 @@ class BigBrotherTrust usingPlatform: platform indexedDB: idb = (
 
 	private indexedDB = idb.
     private IDBObject = indexedDB IDBObject.
-    private IDBSubject = platform hopscotch core Subject mixinApply: indexedDB IDBSubject.
+    private IDBSubject = indexedDB IDBSubject.
 
     public version = 1.
 	public transactions = List new.
 |
 ) (
-public class BankTransaction id: uuid 
-													amount: a <String>
+public class BankTransaction amount: a <String>
                                                     onDate: d <Integer> 
                                                     memo: m <String>
-                                                    reconciled: r <Boolean> = IDBObject uuid: uuid (
+                                                    reconciled: r <Boolean> = IDBObject (
 	|
     public amount = a.
     public txDate = d.
@@ -38,14 +37,8 @@ public transactionDate = (
 			^(Date new: txDate) toDateString
 		)
 ) : (
-public new: array = (
-	^self id: (array at: 0) amount: (array at: 1) onDate: (array at: 2) memo: (array at: 3) reconciled: (array at: 4)
-)
 public amount: a = (
-	^id: crypto randomUUID amount: a
-)
-public id: id amount: a = (
-	^id: id amount: a onDate: Date now memo: '' reconciled: false.
+	^ amount: a onDate: Date now memo: '' reconciled: false.
 )
 )
 class BankTransactionPresenter onSubject: s =  Presenter onSubject: s (
@@ -56,49 +49,14 @@ isMyKind: p <Presenter> ^ <Boolean> = (
 isKindOfBankTransactionPresenter = (
 			^true
 		)
-dateColumn= (| lbl = label: subject transactionDate. |
-	lbl visual at: 'style' put: style.
-	^column: { lbl }
-)
-typeColumn = ( | lbl = label: subject transactionType. |
-	lbl visual at: 'style' put: style.
-	^column: { lbl. }
-)
 style = (
 	^'font-family: sans-serif; font-size: 110%; color: slateGray'
 )
 deleteButton = (
 	^button: 'Delete' action: [ updateGUI: [ subject delete ] ]
 )
-amountColumn = (| lbl = label: ((JSNumber new: (subject amount / 100)) toFixed: 2). |
-	lbl visual at: 'style' put: style, 'text-align: right'.
-	^column: { lbl }
-)
-memoColumn = ( | lbl = label: subject memo. |
-	lbl visual at: 'style' put: style.
-	^column: { lbl }
-)
 definition ^ <Fragment> = (
 	^transactionBlock: transactionRow
-)
-transactionRow = (
-	^row: {  
-			dateColumn.
-            blank: 50.
-            typeColumn.
-            blank: 50.
-            memoColumn.
-            blank: 50.
-            amountColumn.
-            blank: 100.
-            reconciledColumn.
-            blank: 100.
-            editButton.
-            deleteButton.
-	}
-)
-transactionBlock: row = (
-	^(padded: row with: { 25. 5. 25. 5. }) color: (Color r: 0.99 g: 0.99 b: 0.99 a: 1).
 )
 editButton = (
 	^button: 'Edit' action: [
@@ -106,8 +64,54 @@ editButton = (
         updateGUI: [ subject edit: m ].
     ]
 )
+memoColumn = ( | lbl = label: subject memo. c |
+	lbl visual at: 'style' put: style.
+	c:: column: { lbl }.
+    c visual at: 'style' put: 'width:20%'.
+    ^c
+)
+dateColumn= (| lbl = label: subject transactionDate. c |
+	lbl visual at: 'style' put: style.
+	c:: column: { lbl }.
+    c visual at: 'style' put: 'width:10%'.
+    ^c
+)
+transactionRow = (
+	^row: {  
+			dateColumn.
+            blank: 50.
+            typeColumn.
+            blank: 50.
+            amountColumn.
+            blank: 50.
+            memoColumn.
+            blank: 25.
+            reconciledColumn.
+            blank: 50.
+            editButton.
+            deleteButton.
+	}
+)
 reconciledColumn = (
-	^column: { checkbox: 'Reconciled' value: subject reconciled action: [ :ck | updateGUI: [ subject toggleReconciled ] ] }
+	| c |
+    c:: column: { checkbox: 'Reconciled' value: subject reconciled action: [ :ck | updateGUI: [ subject toggleReconciled ] ] }.
+    c visual at: 'style' put: 'width:10%'.
+    ^c
+)
+typeColumn = ( | lbl = label: subject transactionType. c |
+	lbl visual at: 'style' put: style.
+	c:: column: { lbl }.
+    c visual at: 'style' put: 'width: 5%'.
+    ^c
+)
+transactionBlock: row = (
+	^(padded: row with: { 5. 5. 5. 5. }) color: (Color r: 0.99 g: 0.99 b: 0.99 a: 1).
+)
+amountColumn = (| lbl = label: ((JSNumber new: (subject amount / 100)) toFixed: 2). c |
+	lbl visual at: 'style' put: style, 'text-align: right'.
+	c:: column: { lbl }.
+    c visual at: 'style' put: 'width: 10%'.
+    ^c
 )
 ) : (
 )
@@ -181,9 +185,6 @@ onGetAll: event <Alien> = (
     txs do: [ :tx | transactions add: tx ].
     presenter refresh.
 )
-public withdraw: amt = ( 
-	transact:: amt * -1
-)
 add: b <BankTransaction> = (
         add: b
         	onComplete: [ :e | 
@@ -222,6 +223,12 @@ public delete: o = (
     	onComplete: [ :e | transactions remove: o.  nil ] 
         onError: [ :e |  Error signal: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). nil ]
 )
+public withdraw: amt = ( 
+	withdraw: amt withMemo: ''
+)
+public withdraw: amt withMemo: m = ( 
+	transact: (amt * -1) withMemo: m
+)
 ) : (
 )
 class BankAccountPresenter onSubject: s <BankAccountSubject> = Presenter onSubject: s (|
@@ -243,17 +250,10 @@ minorHeadingBlock: body = (
 majorHeadingBlock: body = (
 	^(padded: body with: {50. 25. 25. 25.}) color: majorHeadingColor.
 )
-logo = (| b = label: 'Big Brother Trust'. |
-	b visual at: 'style' put: 'font-family: sans-serif; font-size: 200%; text-align: center'.
-	^row: { b }
-)
 header = ( | l = label: 'Your Money'. |
 	l visual at: 'style' put: 'font-size: 200%'.
 		^row: {  l. }
 		)
-logoBlock: body = (
-	^(padded: body with: { 100. 75. 100. 75. }) color: logoColor.
-)
 logoColor = (
 	^Color white
 )
@@ -303,17 +303,6 @@ computeDigits: ds = (
     n:: [ Float parse: ds ] on: Error do: [ n: 0 ].
    ^n * 100
 )
-public definition ^<Fragment> = ( | r style |
-	^column: {
-    	logoBlock: logo.
-		majorHeadingBlock: header.
-		minorHeadingBlock: currentBalance.
-        inputRow.
-		row: { labelTransactions }.
-		transactionList.
-        row: {label: 'For entertainment purposes only. No warranty experssed or implied.' }.
-   }
-)
 newWithdrawalInput ^ <Fragment> = (
 	^button: 'Record a withdrawal' action: [ | a m v |
     	a:: prompt: 'Enter amount' input: ''. 
@@ -344,6 +333,28 @@ inputRow = (| r style |
 	style:: r visual at: 'style'.
 	style setProperty: 'width' value: '100%'.
     ^r
+)
+public title = (
+	^'BigBrotherTrust'
+)
+logo = (| b = label: 'Big Brother Trust'. c = label: 'Because he''s watching more than you...'. |
+	b visual at: 'style' put: 'font-family: sans-serif; font-size: 200%; text-align: center'.
+    c visual at: 'style' put: 'font-family: sans-serif; text-align: center; font-style: italic;color: gray'.
+	^column: { row: { b }. row: { c } }
+)
+logoBlock: body = (
+	^(padded: body with: { 100. 50. 100. 50. }) color: logoColor.
+)
+public definition ^<Fragment> = (
+	^column: {
+    	logoBlock: logo.
+		majorHeadingBlock: header.
+		minorHeadingBlock: currentBalance.
+        inputRow.
+		row: { labelTransactions }.
+		transactionList.
+        row: {label: 'For entertainment purposes only. No warranty expressed or implied.' }.
+   }
 )
 ) : (
 )
