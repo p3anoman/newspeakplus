@@ -1,0 +1,12 @@
+public class FencedFrameFragment allowList: l <List[String]> = LeafFragment (
+	|
+    alien = document createElement: 'fixedframe'.
+		allow = l.
+	config
+	|
+) (
+createVisual = (
+	^alien
+)
+) : (
+)
