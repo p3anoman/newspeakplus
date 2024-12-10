@@ -43,11 +43,11 @@ private class: k <Class> adoptInstance: object <VictoryFuel|IDBObject>= (
 )
 public fromJSObject: o <Alien[JSObject]> usingClass: k <Class[IDBObject]> ^<IDBObject> = (
 	|
-	keys = JSObject keys: o.
-	slotCount = keys at: 'length'.
-	values = JSObject values: o.
-	tmpClass = TemporaryClass withFormat: slotCount.
-	instance = tmpClass victoryFuel.
+	keys <Alien[Array[String]]> = JSObject keys: o.
+	slotCount <Integer> = keys at: 'length'.
+	values <Alien[Array[String|Number|Boolean|JSObject|Array]]> = JSObject values: o.
+	tmpClass <TemporaryClass> = TemporaryClass withFormat: slotCount.
+	instance <VictoryFuel> = tmpClass victoryFuel.
 	mirror <ObjectMirror>
 	|
 	class: k adoptInstance: instance.
@@ -56,16 +56,10 @@ public fromJSObject: o <Alien[JSObject]> usingClass: k <Class[IDBObject]> ^<IDBO
 	^instance
 )
 )
-public class IDBSubject onModel: m = Subject onModel: m (
-(*
-	This class is to be used to as the subclass of your main application subject.
-	Override onUpgradeNeeded to create the objectStores needed to store your model objects.
-    Overrided onSuccess to load data?
-    Stores are automatically created for the classes returned by the application subject's modelClasses method.
-*)
- |
+public class IDBSubject onModel: m  (* :exemplar: IDBSubject onModel: m *) = Subject onModel: m (
+|
  (* The connection to the application's database *)
- db <Alien>
+ db <Alien[IDBDatabase]>
  |
 ) (
 modelClasses = (
@@ -110,29 +104,6 @@ onGet: e <Alien[Event]>^<IDBObject> = (
     modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
    	^ IDBObject fromJSObject: o usingClass: modelClass.
 )
-add: o <IDBObject> onComplete: completeHandler onError: errorHandler = (
-	|
-    m <ObjectMirror> = ObjectMirror reflecting: o.
-	s <String> = m getClass mixin name.
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-    req <Alien[IDBRequest]>
-    |
-    (* Create the UUID key for the model
-    m setSlot: 'uuid' to: crypto randomUUID. *)
-
-    (* Create the IDBTransaction *)
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: completeHandler.
-    tx addEventListener: 'error' handler: errorHandler.
-
-    (* Get the IDBObjectStore from the transaction *)
-    store:: tx objectStore: s.
-
-    (* Store the model object *)
-    req:: store add: o asJSObject.
-    req addEventListener: 'success' handler: [ :e | self onAdd: e. nil ]
-)
 get: aUUID <UUID> forClass: c <Class[IDBObject]> = (
 (* Not quite ready for primetime *)
 		| tx store req storeName = (ClassMirror reflecting: c) mixin name. |
@@ -141,18 +112,6 @@ get: aUUID <UUID> forClass: c <Class[IDBObject]> = (
     	store:: tx objectStore: storeName.
     	req:: store get: aUUID.
     	req addEventListener: 'success' handler: [ :e <Event> | onGet: e. nil ]
-)
-delete: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
-	|
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-	s <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    |
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
-    store:: tx objectStore: s.
-    store delete: o uuid.
 )
 onAdd: event  <Alien[Event]> = (
 	'Success' out.
@@ -197,19 +156,6 @@ public openDB = (
 	(* Use this version to let the subject's model provide the version number. In lieu of that, use the openDB: message *)
 	openDB: model version.
 )
-onUpgradeNeeded: event <Alien[Event]> = (
-	(* The default handler for the 'upgradeneeded' event generated on version change. *)
-    (* This default 'Version 1' creates the required IDBObjectStores according to the classes returned by the modelClasses method as overridden by the application Subject *)
-    (* This method plays a central role in making database/model schema changes throughout the application lifecycle. *)
-	| o <Alien[JSObject]> = JSObject new. |
-    db::  (event at: #target) at: #result.
-	o  at: 'keyPath' put: 'uuid'.
-   	modelClasses do: [ :m <Class> |
-    	| cm <ClassMirror> = ClassMirror reflecting: m. |
-		db createObjectStore: cm mixin name with: o.
-    ].
-    'upgradeneeded triggered' out.
-)
 public openDB: version <Integer> = (
 	|
     cm <ClassMirror> = (ObjectMirror reflecting: model) getClass.
@@ -235,19 +181,64 @@ put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
     req:: store put: o asJSObject.
     req addEventListener: 'success' handler: [ :e <Alien[Event]> | self onPut: e. nil ]
 )
+add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
+	|
+    m <ObjectMirror> = ObjectMirror reflecting: o.
+	s <String> = m getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    |
+    (* Create the IDBTransaction *)
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: completeHandler.
+    tx addEventListener: 'error' handler: errorHandler.
+
+    (* Get the IDBObjectStore from the transaction *)
+    store:: tx objectStore: s.
+
+    (* Store the model object *)
+    req:: store add: o asJSObject.
+    req addEventListener: 'success' handler: [ :e | self onAdd: e. nil ]
+)
+delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
+	|
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+	s <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    |
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
+    store:: tx objectStore: s.
+    store delete: o uuid.
+)
+onUpgradeNeeded: event <Alien[Event]> = (
+	(* The default handler for the 'upgradeneeded' event generated on version change. *)
+    (* This default 'Version 1' creates the required IDBObjectStores according to the classes returned by the modelClasses method as overridden by the application Subject *)
+    (* This method plays a central role in making database/model schema changes throughout the application lifecycle. *)
+	| o <Alien[JSObject]> = JSObject new. |
+    db::  (event at: #target) at: #result.
+	o  at: 'keyPath' put: 'uuid'.
+   	modelClasses do: [ :m <Class[IDBObject]> |
+    	| cm <ClassMirror> = ClassMirror reflecting: m. |
+		db createObjectStore: cm mixin name with: o.
+    ].
+    'upgradeneeded triggered' out.
+)
 ) : (
 )
-class TemporaryClass withFormat: fmt = (|
-	superclass = Object.
-	methods = {}.
-	enclosingObject = nil.
-	mixin = nil.
-	classIndex
-	format = fmt.
-	public name = 'IDBVictoryFuelObject'.
-	subclasses
+class TemporaryClass withFormat: fmt <Integer> = (|
+	superclass <Class> = Object.
+	methods <List> = {}.
+	enclosingObject <Object> = nil.
+	mixin <Mixin> = nil.
+	classIndex <Integer> (* < ? > *)
+	format <Integer> = fmt.
+	public name  <String> = 'IDBVictoryFuelObject'.
+	subclasses <List> (* < ? > *)
 |) (
-public victoryFuel = (
+public victoryFuel ^<Bytes> = (
 	(* :literalmessage: primitive: 34 *)
 	halt.
 )
