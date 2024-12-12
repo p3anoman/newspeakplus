@@ -1,8 +1,7 @@
 Newspeak3
 'Root'
-class TodoMVC usingPlatform: p <HopscotchPlatform> indexedDB: idb <IndexedDB> 
-(* :exemplar: TodoMVC usingPlatform: platform indexedDB: (IndexedDB usingPlatform: platform) *)
-= (
+class TodoMVC usingPlatform: p <HopscotchPlatform> indexedDB: idb <IndexedDB> = (
+(* :exemplar: TodoMVSPresenter usingPlatform: platform inDexedDB: (IndexedDB usingPlatform: platform *)
   |
   (* imports *)
   private List = p collections List.
@@ -10,26 +9,20 @@ class TodoMVC usingPlatform: p <HopscotchPlatform> indexedDB: idb <IndexedDB>
   private Subject = p hopscotch core Subject.
   
   private indexedDB = idb.
-  private IDBObject = idb IDBObject.
   private IDBSubject = idb IDBSubject.
-  
-  public todos = List new.
+  private IDBObject = idb IDBObject.
   |
 ) (
-class TodoItem named: s <String> completed: c <Boolean> = IDBObject (
-(* :exemplar: TodoItem named: 'exemplar item' completed: true *)
+class TodoItem named: s <String> = IDBObject (
 |
-	public description <String> ::= s.
-	public completed <Boolean> ::= c.
+	public description ::= s.
+      public completed <Boolean> ::= false.
 |
 ) (
 public active ^ <Boolean> = (
   ^completed not
 )
 ) : (
-public new: array = (
-	^uuid: (array at: 0) named: (array at: 1) completed: (array at: 2)
-)
 )
 class TodoItemPresenter onSubject: s <TodoItemSubject> =  Presenter onSubject: s (
 ) (
@@ -53,21 +46,21 @@ public isKindOfTodoItemPresenter ^ <Boolean> = (
 isMyKind: p <Presenter> ^ <Boolean> = (
   ^p isKindOfTodoItemPresenter
 )
-definition ^ <Fragment> = (
-  ^row: {completedCheckBox. blank: 20. description. blank: 20. deleteButton. }
+completedCheckBox = (
+  ^checkbox: 'Complete' 
+        value: subject completed 
+        action: [ :checked | updateGUI: [subject toggleState]].
 )
 deleteButton = (
 	^button: 'Remove' action: [ updateGUI: [ subject delete ] ]
 )
-completedCheckBox = (
-  ^checkbox: 'Complete' 
-        value: subject completed 
-        action: [ :checked | updateGUI: [ subject toggleCompleted ]].
+definition ^ <Fragment> = (
+  ^row: {completedCheckBox. blank: 20. description. blank: 20. deleteButton. }
 )
 ) : (
 )
-class TodoItemSubject onModel: ti <TodoItem>parentSubject: s = Subject onModel: ti (
-  | public inEditMode <Boolean> ::= false.  private parent = s. |
+class TodoItemSubject onModel: ti <TodoItem> parent: p <Subject> = Subject onModel: ti (
+  | public inEditMode <Boolean> ::= false. parent = p. |
 ) (
 public active ^ <Boolean> = (
   ^model active
@@ -93,29 +86,36 @@ isMyKind: p <Presenter> ^ <Boolean> = (
 public leaveEditMode = (
   inEditMode: false
 )
-public description: d <String> = (
-  model description: d.
-  put: model.
-)
-public delete = (
-	parent delete: model
-)
 public toggleState = (
   model completed
-     ifTrue: [model completed: false. ]
+     ifTrue: [model completed: false]
      ifFalse: [model completed: true].
-	parent put: model 
+  parent put: model
 )
-public toggleCompleted = (
-	model completed
-  		ifTrue: [model completed: false. ]
-		ifFalse: [model completed: true].
-	parent put: model 
+public description: d <String> = (
+  model description: d
+  parent put: model
+)
+public delete = (
+	parent delete: self
 )
 ) : (
 )
 class TodoMVCPresenter onSubject: s <TodoMCSubject> = Presenter onSubject: s (
 ) (
+clearCompleted ^ <Fragment> = (
+  ^subject completedTodos size > 0 ifTrue: [
+	button: 'Clear Completed' action: [updateGUI: [subject clearCompleted]]
+	] ifFalse: [nothing]
+)
+definition ^ <Fragment> = (
+  ^column: {
+      header.
+      newTodoInput.
+      selectedTodos.
+      row: {itemsLeft. filters. clearCompleted }
+  }
+)
 header = (
   ^label: 'Todos'
 )
@@ -143,6 +143,10 @@ newTodoInput ^ <Fragment> = (
 	].
   ^cm
 )
+selectedTodos = (
+  (* Issue: creating new subjects each time destroys subject state *)
+  ^column: (subject selectedTodos collect: [:ti <TodoItemSubject> |  ti presenter])
+)
 filters = (
   ^row: { 
                radioButton: 'All' 
@@ -165,34 +169,36 @@ filters = (
                mediumBlank.    
    }
 )
-selectedTodos = (
-  (* Issue: creating new subjects each time destroys subject state *)
-  ^column: selectedPresenters
-)
-selectedPresenters = (
-	^subject selectedTodos collect: [:ti <TodoItemSubject> |  ti presenter] 
-)
-definition ^ <Fragment> = (
-  ^column: {
-      header.
-      newTodoInput.
-      selectedTodos.
-      row: {itemsLeft. filters. }
-  }
-)
 public refresh = (
-	updateGUI: [ ].
+	updateGUI: [ ]
 )
-public showAlert: s <String> = (
-	alert: s
+public title = (
+	^'Tada! List'
 )
 ) : (
 )
 public class TodoMVCSubject onModel: l = IDBSubject onModel: l (
   | 
   public filterState <Symbol> ::= #all. 
+  todoSubjects = todos collect: [:ti <TodoItem> | TodoItemSubject onModel: ti parent: self ]. 
   |
 ) (
+public activeTodos ^ <List[TodoItemSubject]> = (
+  ^todoSubjects select: [:ti | ti active]
+)
+public allTodos ^ <List[TodoItemSubject]> = (
+  ^todoSubjects copyFrom: 1 to: todoSubjects size
+)
+public clearCompleted = (
+  allTodos do: [:ti <TodoItemSubject> |  ti completed ifTrue: [
+		todoSubjects remove: ti.
+		todos remove: ti model
+		]
+	]
+)
+public completedTodos ^ <List[TodoItemSubject]> = (
+  ^todoSubjects select: [:ti | ti completed]
+)
 createPresenter ^ <TodoMVCPresenter> = (
   ^TodoMVCPresenter onSubject: self
 )
@@ -216,49 +222,45 @@ public selectedTodos ^ <List[TodoItemSubject]> = (
   filterState = #active ifTrue: [^activeTodos].
   ^completedTodos
 )
+todos ^ <List[TodoItem]> = (
+  ^model
+)
+public refresh = (
+	updateGUI: [ ].
+)
 modelClasses = (
 	^ { TodoItem. }
 )
-todoSubjects = (
-	^model todos collect: [:ti <TodoItem> | TodoItemSubject onModel: ti]. 
-)
-public completedTodos ^ <List[TodoItemSubject]> = (
-	^model completedTodos collect: [:ti | TodoItemSubject onModel: ti parentSubject: self ]
-)
-public allTodos ^ <List[TodoItemSubject]> = (
-	^model todos collect: [:ti <TodoItem> | TodoItemSubject onModel: ti parentSubject: self ]. 
-	(* ^todoSubjects copyFrom: 1 to: todoSubjects size *)
-)
-public activeTodos ^ <List[TodoItemSubject]> = (
-  ^model activeTodos collect: [:ti | TodoItemSubject onModel: ti parentSubject: self ]
-  (* ^todoSubjects select: [:ti | ti active] *)
-)
 onGetAll: e = (
-	| ts = super onGetAll: e. |
-    ts do: [ :t | model todos add: t ].
+	| ts <List[TodoItem]> = super onGetAll: e. |
+    ts do: [ :t | 
+    	todos add: t. 
+        todoSubjects add: (TodoItemSubject onModel: t parent: self) ].
     presenter refresh.
+)
+public delete: todoSubject <TodoItemSubject> = (
+	| todo <TodoItem> = todoSubject model. |
+	delete: todo
+    	onComplete: [ :e | todos remove: todo. todoSubjects remove: todoSubject. presenter refresh. nil ]
+        onError: [ :e | presenter showAlert: 'Failed to delete Todo: ', ((e at: 'error') at: 'message'). nil ]
+)
+public addTodoNamed: n <String> = (
+  | newTodo = TodoItem named: n. |
+	add: newTodo
+		onComplete: [ :e | 
+        	todos add: newTodo. 
+            todoSubjects add: (TodoItemSubject onModel: newTodo parent: self).
+            presenter refresh. 
+            nil ]
+		onError: [ :e | presenter showAlert: 'Failed to add new Todo'. nil ]
 )
 public put: todo <TodoItem> = (
 	super put: todo
 )
-public addTodoNamed: n <String> = (
-	| newTodo = TodoItem named: n completed: false. |
-	add: newTodo 
-		onComplete: [ :e | model todos add: newTodo. presenter refresh. nil ]
-		onError: [ :e | presenter showAlert: 'Failed to add new Todo'. nil ]
-)
-public delete: todo <TodoItem> = (
-	delete: todo
-    	onComplete: [ :e | model todos remove: todo. presenter refresh. nil ]
-        onError: [ :e | presenter showAlert: 'Failed to delete Todo: ', ((e at: 'error') at: 'message'). nil ]
-)
 ) : (
+public new = (
+  ^onModel: List new
 )
-public activeTodos = (
-	^todos select: [ :t <TodoItem> | t active ]
-)
-public completedTodos = (
-	^todos select: [ :t <TodoItem> | t completed ]
 )
 ) : (
 )

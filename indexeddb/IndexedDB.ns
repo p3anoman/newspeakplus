@@ -21,7 +21,7 @@ public class IndexedDB usingPlatform: p = (
 	|
 ) (
 public class IDBObject new = (
-	| private uuid = crypto randomUUID. |
+	| public uuid = crypto randomUUID. |
 ) (
 public asJSObject ^<Alien[JSObject]> = (
 	|
