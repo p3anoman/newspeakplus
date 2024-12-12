@@ -10,7 +10,7 @@ public main: platform <Platform> args: args = (
 	|   
     idb = IndexedDB usingPlatform: platform.
 	todolist = TodoMVC usingPlatform: platform indexedDB: idb.
-    subject = todolist TodoMVCSubject onModel: todolist.
+    subject = todolist TodoMVCSubject new.
     |
     subject openDB: 1.
 	platform hopscotch HopscotchWindow openSubject: subject
