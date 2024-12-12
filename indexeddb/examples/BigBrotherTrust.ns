@@ -138,25 +138,22 @@ public transactionDate = (
 public transactionType = (
 	^amount < 0 ifTrue: [ 'Withdrawal:' ] ifFalse: [ 'Deposit:' ]
 )
-public delete = (
-	parent delete: model.
-)
-public edit = (
-	parent edit: model
-)
 public memo = (
 	^model memo
 )
 public reconciled = (
 	^model reconciled
 )
+public toggleReconciled = (
+	(* Do not allow to "unreconcile" *)
+	model reconciled ifFalse: [ model reconciled: true. parent edit: model ]
+)
 public edit: theMemo <String> = (
 	model memo: theMemo.
     parent edit: model.
 )
-public toggleReconciled = (
-	(* Do not allow to "unreconcile" *)
-	model reconciled ifFalse: [ model reconciled: true. parent edit: model ]
+public delete = (
+	parent delete: model
 )
 ) : (
 )
@@ -208,22 +205,22 @@ public deposit: amt withMemo: m = (
 public deposit: amt = (
 	deposit: amt withMemo: ''.
 )
-public edit: transaction = (
-	put: transaction
-    	onComplete: [ :e | nil. ]
-        onError: [ :e | Error signal: ((e at: 'error') at: 'message'). nil. ]
-)
-public delete: o = (
-	delete: o
-    	onComplete: [ :e | transactions remove: o.  nil ]
-        onError: [ :e |  Error signal: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). nil ]
-)
 public withdraw: amt = (
 	withdraw: amt withMemo: ''
 )
 public withdraw: amt withMemo: m = (
 	amt > balance ifTrue: [ signal: 'Insufficient funds available.' ]
 	ifFalse: [ transact: (amt * -1) withMemo: m ]
+)
+public edit: transaction = (
+	put: transaction
+    	onComplete: [ :e | presenter refresh. nil. ]
+        onError: [ :e | Error signal: ((e at: 'error') at: 'message'). nil. ]
+)
+public delete: o = (
+	delete: o
+    	onComplete: [ :e | transactions remove: o.  presenter refresh. nil ]
+        onError: [ :e |  Error signal: 'Failed to delete transaction: ', ((e at: #error) at: 'message'). nil ]
 )
 ) : (
 )
