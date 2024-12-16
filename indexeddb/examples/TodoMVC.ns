@@ -1,19 +1,19 @@
 Newspeak3
 'Root'
 class TodoMVC usingPlatform: p <HopscotchPlatform> indexedDB: idb <IndexedDB> = (
-(* :exemplar: TodoMVSPresenter usingPlatform: platform inDexedDB: (IndexedDB usingPlatform: platform *)
+(* :exemplar: TodoMVSPresenter usingPlatform: platform indexedDB: (IndexedDB usingPlatform: platform *)
   |
   (* imports *)
   private List = p collections List.
-  private Presenter = p hopscotch core Presenter.
-  private Subject = p hopscotch core Subject.
+  private Presenter = p hopscotch Presenter.
+  private Subject = p hopscotch Subject.
   
   private indexedDB = idb.
   private IDBSubject = idb IDBSubject.
   private IDBObject = idb IDBObject.
   |
 ) (
-class TodoItem named: s <String> = IDBObject (
+public class TodoItem named: s <String> = IDBObject (
 |
 	public description ::= s.
       public completed <Boolean> ::= false.
@@ -177,7 +177,9 @@ public title = (
 )
 ) : (
 )
-public class TodoMVCSubject onModel: l = IDBSubject onModel: l (
+public class TodoMVCSubject onModel: l <List>
+													idbObjectClasses: i <Array[Class[IBObjet]]> 
+= IDBSubject onModel: l idbObjectClasses: i (
   | 
   public filterState <Symbol> ::= #all. 
   todoSubjects = todos collect: [:ti <TodoItem> | TodoItemSubject onModel: ti parent: self ]. 
@@ -259,7 +261,7 @@ public put: todo <TodoItem> = (
 )
 ) : (
 public new = (
-  ^onModel: List new
+  ^onModel: (List new) idbObjectClasses: { TodoItem }
 )
 )
 ) : (
