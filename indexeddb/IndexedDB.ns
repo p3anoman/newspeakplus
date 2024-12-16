@@ -8,7 +8,7 @@ public class IndexedDB usingPlatform: p = (
 			Copyright 2024 John McKeon.
             MIT License. Use at your own risk.
     	*)
-    public List = p collections List.
+    private List = p collections List.
     private ObjectMirror = p mirrors ObjectMirror.
     private ClassMirror = p mirrors ClassMirror.
     private Subject = p hopscotch core Subject.
@@ -45,9 +45,9 @@ public fromJSObject: o <Alien[JSObject]> usingClass: k <Class[IDBObject]> ^<IDBO
 	|
 	keys <Alien[Array[String]]> = JSObject keys: o.
 	slotCount <Integer> = keys at: 'length'.
-	values <Alien[Array[String|Number|Boolean|JSObject|Array]]> = JSObject values: o.
-	tmpClass <TemporaryClass> = TemporaryClass withFormat: slotCount.
-	instance <VictoryFuel> = tmpClass victoryFuel.
+	values <Alien[Array[String|Number|Boolean|Object|Array]]> = JSObject values: o.
+	tmpClass <TemporaryClass> = TemporaryClass withFormat: slotCount superclass: Object.
+	instance <VictoryFuel> = tmpClass idbBasicNew.
 	mirror <ObjectMirror>
 	|
 	class: k adoptInstance: instance.
@@ -56,15 +56,18 @@ public fromJSObject: o <Alien[JSObject]> usingClass: k <Class[IDBObject]> ^<IDBO
 	^instance
 )
 )
-public class IDBSubject onModel: m  (* :exemplar: IDBSubject onModel: m *) = Subject onModel: m (
+public class IDBSubject onModel: m <Object> idbObjectClasses: i <Array[Class[IDBObject]]>
+(* :exemplar_1: [
+	| t = TemporaryClass withFormat: 2 superclass: IDBObject. | 
+	IDBSubject onModel: m idbObjectClasses: { t } ] value
+*)
+= Subject onModel: m (
 |
  (* The connection to the application's database *)
  db <Alien[IDBDatabase]>
+ modelClasses = i.
  |
 ) (
-modelClasses = (
-	^subclassResponsibility
-)
 add: o <IDBObject> = (
 	add: o onComplete: [ :e | ] onError: [ :e | ]
 )
@@ -228,8 +231,8 @@ onUpgradeNeeded: event <Alien[Event]> = (
 )
 ) : (
 )
-class TemporaryClass withFormat: fmt <Integer> = (|
-	superclass <Class> = Object.
+class TemporaryClass withFormat: fmt <Integer> superclass: s <Class> = (|
+	superclass <Class> = s.
 	methods <List> = {}.
 	enclosingObject <Object> = nil.
 	mixin <Mixin> = nil.
@@ -238,7 +241,7 @@ class TemporaryClass withFormat: fmt <Integer> = (|
 	public name  <String> = 'IDBVictoryFuelObject'.
 	subclasses <List> (* < ? > *)
 |) (
-public victoryFuel ^<Bytes> = (
+public idbBasicNew ^<Bytes> = (
 	(* :literalmessage: primitive: 34 *)
 	halt.
 )

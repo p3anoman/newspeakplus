@@ -156,7 +156,10 @@ public transactionType = (
 )
 ) : (
 )
-public class BankAccountSubject onModel: b <BigBrotherTrust> = IDBSubject onModel: b (
+public class BankAccountSubject onModel: b <BigBrotherTrust> 
+														 idbObjectClasses: i <Array[Class[IDBObject]]> 
+= IDBSubject onModel: b 
+						idbObjectClasses: i (
 ) (
 withdrawals = (
 		^txSubjets select: [ :t | t amount < 0 ]
@@ -170,9 +173,6 @@ deposits = (
 public balance = (
 		^model balance
 	)
-modelClasses = (
-	^{ BankTransaction. }
-)
 public transactionSubjects = (
 	^transactions collect: [ :t | BankTransactionSubject onModel: t parent: self ]
 )

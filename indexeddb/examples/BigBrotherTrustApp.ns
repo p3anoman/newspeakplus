@@ -10,7 +10,7 @@ public main: platform <Platform> args: args = (
 	|
     idb =  IndexedDB usingPlatform: platform.
 	b = BigBrotherTrust usingPlatform: platform indexedDB: idb.
- 	s = b BankAccountSubject onModel: b.
+ 	s = b BankAccountSubject onModel: b idbObjectClasses: { b BankTransaction }.
     |
     s openDB.
 	platform hopscotch HopscotchWindow openSubject: s.
