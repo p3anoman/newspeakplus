@@ -1,0 +1,42 @@
+Newspeak3
+'Root'
+public class IndexedDBTesting usingPlatform: platform
+										minitest: minitest
+                                        indexedDB: idb
+                                        modelClasses: models = (
+	|
+	private TestContext = minitest TestContext.
+    private modelClasses <Array[Class[IDBObject]]> = models.
+    indexedDB = idb.
+    IDBSubject = idb IDBSubject.
+    IDBObject = idb IDBObject.
+    List = platform collections List.
+	|
+) (
+public class SubjectHolder = (
+	|
+	subject = IDBSubject onModel: List new modelClasses: modelClasses.
+	|
+    subject openDB: 1. (* version number injection? *)
+) (
+public class IDBTests = TestContext (
+) (
+public testAdd = (
+	| 
+    m = subject modelClasses first new.
+    rslt
+	|
+    subject add: m
+    			onComplete: [ :e <Alien[Event]> | rslt:: 'sucess' ]
+                onError: [ :e <Alien[Event]> | rslt:: 'error' ].
+)
+public cleanUp = (
+	subject db deleteDatabase: 'List'
+)
+) : (
+TEST_CONTEXT = ()
+)
+) : (
+)
+) : (
+)

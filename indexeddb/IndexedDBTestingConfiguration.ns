@@ -1,0 +1,18 @@
+Newspeak3
+'Root'
+class IndexedDBTestingConfiguration packageTestsUsing: manifest = (
+	|
+	private IndexedDBTesting = manifest IndexedDBTesting.
+    private IndexedDB = manifest IndexedDB.
+    private modelClass = manifest IndexedDBTestingModel.
+	|
+) (
+public testModulesUsingPlatform: p  minitest: m = (
+	| idb = IndexedDB usingPlatform: p. |
+	^{ IndexedDBTesting usingPlatform: p 
+    									minitest: m 
+                                        indexedDB: idb
+                                        modelClasses: { modelClass }. }
+)
+) : (
+)

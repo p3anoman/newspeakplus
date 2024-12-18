@@ -1,0 +1,10 @@
+Newspeak3
+'Root'
+class IndexedDBTestingModel = IDBObject (
+	|
+	slot1
+	slot2
+	|
+) (
+) : (
+)
