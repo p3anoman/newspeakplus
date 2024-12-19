@@ -3,35 +3,60 @@ Newspeak3
 public class IndexedDBTesting usingPlatform: platform
 										minitest: minitest
                                         indexedDB: idb
-                                        modelClasses: models = (
+= (
 	|
 	private TestContext = minitest TestContext.
-    private modelClasses <Array[Class[IDBObject]]> = models.
+    private List = platform collections List.
+    private Presenter = platform hopscotch Presenter.
+    private IDBSubject = idb IDBSubject.
+    private IDBObject = idb IDBObject.
+
     indexedDB = idb.
-    IDBSubject = idb IDBSubject.
-    IDBObject = idb IDBObject.
-    List = platform collections List.
 	|
 ) (
-public class SubjectHolder = (
+public class IDBTestingPresenter onSubject: s = Presenter onSubject: s (
+) (
+public addTestObject = (
+	| o = IDBTestingModel new slot1: 'test1'; slot2: 'test2'; yourself. |
+    subject addTestObject: o
+)
+) : (
+)
+public class IDBTestingSubject onModel: m = IDBSubject onModel: m modelClasses: { IDBTestingModel } (
+) (
+public addTestObject: o <IDBObject> = (
+	add: o onComplete: [ :e | model add: o ] onError: [ :e | errors add: ((e at: 'target') at: 'error') ]
+)
+) : (
+)
+public class IDBTestingModel = IDBObject (
 	|
-	subject = IDBSubject onModel: List new modelClasses: modelClasses.
+	slot1
+	slot2
+	|
+) (
+) : (
+)
+public class TestHarness = (
+	|
+	subject = IDBTestingSubject onModel: List new.
+    presenter = IDBTestingPresenter onSubject: subject.
+    errors = List new.
 	|
     subject openDB: 1. (* version number injection? *)
 ) (
 public class IDBTests = TestContext (
 ) (
-public testAdd = (
-	| 
-    m = subject modelClasses first new.
-    rslt
-	|
-    subject add: m
-    			onComplete: [ :e <Alien[Event]> | rslt:: 'sucess' ]
-                onError: [ :e <Alien[Event]> | rslt:: 'error' ].
-)
 public cleanUp = (
 	subject db deleteDatabase: 'List'
+)
+public testAdd = (
+	|
+    m = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
+    rslt
+	|
+    rslt:: subject addTestObject: m.
+    deny: [ rslt = 'error' ]
 )
 ) : (
 TEST_CONTEXT = ()
