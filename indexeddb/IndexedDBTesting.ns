@@ -30,9 +30,39 @@ public class TestHarness = (
 ) (
 public class IDBTestingSubject onModel: m = IDBSubject onModel: m modelClasses: { IDBTestingModel } (
 ) (
-public addTestObject: o <IDBObject> = (| rslt |
-	add: o onComplete: [ :e | rslt: 1. nil ] onError: [ :e | rslt: 0. nil ].
-    'addTestObject' out.
+public deleteTestObject = (
+	| 
+    m = IDBTestingModel new slot1: 'delete me'; slot2: 'deleted'; yourself.
+    rslt
+    |
+    add: m.
+	delete: m
+    			onComplete: [ :e | rslt: true. nil ]
+                onError: [ :e | rslt: false. nil ].
+	^rslt
+)
+public addTestObject = (
+	|
+    m = IDBTestingModel new slot1: 'add me'; slot2: 'added'; yourself.
+    rslt
+    |
+    halt.
+	add: m
+    		onComplete: [ :e | rslt: true. nil ]
+            onError: [ :e | rslt: false. nil ].
+    ^rslt
+)
+public putTestObject = (
+	|
+    m = IDBTestingModel new slot1: 'put me'; slot2: 'putted'; yourself.
+    rslt
+    |
+	halt.
+	add: m.
+    m slot2: 'changed value'.
+	put: m
+    		onComplete: [ :e | rslt: true. nil ]
+            onError: [ :e | rslt: false. nil ].
     ^rslt
 )
 ) : (
@@ -47,13 +77,23 @@ public class IDBTestingModel = IDBObject (
 )
 public class IDBTests = TestContext (
 ) (
-public testAdd = (
-	| rslt m |
-	rslt:: subject addTestObject: testModel.
-    deny: [ rslt = 0 ]
-)
 public cleanUp = (
 	(* indexedDB deleteDatabase: 'List' *)
+)
+public testOpen = (
+	(* getAll/onGetAll? *)
+)
+public testAdd = (
+	 assert: [ subject addTestObject ]
+     message: 'Add failed'.
+)
+public testPut = (
+	assert: [ subject putTestObject ]
+    message: 'Put failed'
+)
+public testDelete = (
+	assert: [ subject deleteTestObject ]
+    message: 'Failed to delete model'.
 )
 ) : (
 TEST_CONTEXT = ()
