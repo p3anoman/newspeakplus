@@ -1,65 +1,70 @@
 Newspeak3
 'Root'
-public class IndexedDBTesting usingPlatform: platform
+public class IndexedDBTesting usingPlatform: p
 										minitest: minitest
                                         indexedDB: idb
+(*
+	:exemplar: IndexedDBTesting usingPlatform: platform
+										minitest: (Minitest usingPlatform: platform)
+                                        indexedDB: (IndexedDB usingPlatform: platform)
+*)
 = (
 	|
 	private TestContext = minitest TestContext.
-    private List = platform collections List.
-    private Presenter = platform hopscotch Presenter.
+    private List = p collections List.
     private IDBSubject = idb IDBSubject.
     private IDBObject = idb IDBObject.
 
     indexedDB = idb.
 	|
 ) (
-public class IDBTestingPresenter onSubject: s = Presenter onSubject: s (
+public class TestHarness = (
+	|
+	subject = IDBTestingSubject onModel: List new.
+    testModel = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
+    testChildModel1 = IDBTestingChildModel new slotA: 'foo'; slotB: 'bar'; yourself.
+    testChildModel2 = IDBTestingChildModel new slotA: 'bar'; slotB: 'baz'; yourself.
+    errors = List new.
+	|
+    subject openDB: 1. (* version number injection? *)
 ) (
-public addTestObject = (
-	| o = IDBTestingModel new slot1: 'test1'; slot2: 'test2'; yourself. |
-    subject addTestObject: o
-)
-) : (
-)
 public class IDBTestingSubject onModel: m = IDBSubject onModel: m modelClasses: { IDBTestingModel } (
 ) (
-public addTestObject: o <IDBObject> = (
-	add: o onComplete: [ :e | model add: o ] onError: [ :e | errors add: ((e at: 'target') at: 'error') ]
+public addTestObject: o <IDBObject> = (| rslt |
+	add: o onComplete: [ :e | rslt: 1. nil ] onError: [ :e | rslt: 0. nil ].
+    'addTestObject' out.
+    ^rslt
 )
 ) : (
 )
 public class IDBTestingModel = IDBObject (
 	|
-	slot1
-	slot2
+	public slot1
+	public slot2
 	|
 ) (
 ) : (
 )
-public class TestHarness = (
-	|
-	subject = IDBTestingSubject onModel: List new.
-    presenter = IDBTestingPresenter onSubject: subject.
-    errors = List new.
-	|
-    subject openDB: 1. (* version number injection? *)
-) (
 public class IDBTests = TestContext (
 ) (
-public cleanUp = (
-	subject db deleteDatabase: 'List'
-)
 public testAdd = (
-	|
-    m = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
-    rslt
-	|
-    rslt:: subject addTestObject: m.
-    deny: [ rslt = 'error' ]
+	| rslt m |
+	rslt:: subject addTestObject: testModel.
+    deny: [ rslt = 0 ]
+)
+public cleanUp = (
+	(* indexedDB deleteDatabase: 'List' *)
 )
 ) : (
 TEST_CONTEXT = ()
+)
+public class IDBTestingChildModel = (
+	|
+	public slotA
+	public slotB
+	|
+) (
+) : (
 )
 ) : (
 )
