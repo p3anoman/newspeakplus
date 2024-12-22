@@ -21,49 +21,50 @@ public class IndexedDBTesting usingPlatform: p
 public class TestHarness = (
 	|
 	subject = IDBTestingSubject onModel: List new.
+    
+    (* Mocks *)
     testModel = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
     testChildModel1 = IDBTestingChildModel new slotA: 'foo'; slotB: 'bar'; yourself.
     testChildModel2 = IDBTestingChildModel new slotA: 'bar'; slotB: 'baz'; yourself.
-    errors = List new.
 	|
-    subject openDB: 1. (* version number injection? *)
+    subject openDB: 1
 ) (
-public class IDBTestingSubject onModel: m = IDBSubject onModel: m modelClasses: { IDBTestingModel } (
+public class IDBTestingSubject onModel: m = IDBSubject onModel: m modelClasses: { IDBTestingModel. IDBTestingChildModel. } (
 ) (
-public deleteTestObject = (
-	| 
-    m = IDBTestingModel new slot1: 'delete me'; slot2: 'deleted'; yourself.
-    rslt
-    |
+onGetAll: event <Alien[Event]>  = (
+	'IDBTestingSubject onGetAll override' out.
+	(* Override *)
+)
+public openDB: version <Integer> = (
+	'IDBTestingSubject openDB override' out.
+	(nil = db) ifTrue: [ 
+    	'IDBTestingSubject openDB' out.
+    	super openDB: version ]	
+)
+onOpen: event <Alien[Event]> = (
+	'IDBTestingSubject openDB' out.
+	db:: (event at: #target) at: #result.
+)
+public addTestObject: completionHandler <Closure> = (
+	| m = IDBTestingModel new slot1: 'add me'; slot2: 'added'; yourself.  |
+	add: m
+    		onComplete: [ :e <Alien[Event]> | completionHandler value: true. nil ]
+            onError: [ :e <Alien[Event]> | completionHandler value: false. nil ].
+)
+public deleteTestObject: completionHandler <Closure> = (
+	| m <IDBTestingModel> = IDBTestingModel new slot1: 'delete me'; slot2: 'deleted'; yourself. |
     add: m.
 	delete: m
-    			onComplete: [ :e | rslt: true. nil ]
-                onError: [ :e | rslt: false. nil ].
-	^rslt
+    			onComplete: [ :e <Alien[Event]> | completionHandler value: true. nil ]
+                onError: [ :e <Alien[Event]> | completionHandler value: false. nil ].
 )
-public addTestObject = (
-	|
-    m = IDBTestingModel new slot1: 'add me'; slot2: 'added'; yourself.
-    rslt
-    |
-    halt.
-	add: m
-    		onComplete: [ :e | rslt: true. nil ]
-            onError: [ :e | rslt: false. nil ].
-    ^rslt
-)
-public putTestObject = (
-	|
-    m = IDBTestingModel new slot1: 'put me'; slot2: 'putted'; yourself.
-    rslt
-    |
-	halt.
+public putTestObject: completionHandler <Closure> = (
+	| m = IDBTestingModel new slot1: 'put me'; slot2: 'putted'; yourself. |
 	add: m.
     m slot2: 'changed value'.
 	put: m
-    		onComplete: [ :e | rslt: true. nil ]
-            onError: [ :e | rslt: false. nil ].
-    ^rslt
+    		onComplete: [ :ex <Alien[Event]> | completionHandler value: true. nil ]
+            onError: [ :e  <Alien[Event]> | completionHandler value: false. nil ].
 )
 ) : (
 )
@@ -81,19 +82,21 @@ public cleanUp = (
 	(* indexedDB deleteDatabase: 'List' *)
 )
 public testOpen = (
-	(* getAll/onGetAll? *)
-)
-public testAdd = (
-	 assert: [ subject addTestObject ]
-     message: 'Add failed'.
+	| olddb = subject db. |
+    subject openDB: 1.
+    assert: [ olddb = subject db ] message: 'dbs are not equal'.
 )
 public testPut = (
-	assert: [ subject putTestObject ]
-    message: 'Put failed'
+	subject putTestObject: [ :r |
+		assert: [ r ] message: 'Put failed' ]
+)
+public testAdd = (
+    subject addTestObject: [ :r |
+		assert: [ r ] message: 'Add failed' ].
 )
 public testDelete = (
-	assert: [ subject deleteTestObject ]
-    message: 'Failed to delete model'.
+	subject deleteTestObject: [ :r |
+		assert: [ r ] message: 'Failed to delete' ].
 )
 ) : (
 TEST_CONTEXT = ()
