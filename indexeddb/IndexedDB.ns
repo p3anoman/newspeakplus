@@ -11,14 +11,13 @@ public class IndexedDB usingPlatform: p = (
     private List <List> = p collections List.
     private ObjectMirror <ObjectMirror> = p mirrors ObjectMirror.
     private ClassMirror <ClassMirror> = p mirrors ClassMirror.
-
-    private Subject <Subject> = p hopscotch Subject
-    													mixinApply: p victoryFuel Serializer;
-                                                        mixinApply: p victoryFuel Deserializer;
-                                                        yourself.
+	public Subject <Subject> = p hopscotch Subject.
+	private Serializer <Serializer> = p victoryFuel Serializer.
+	private Deserializer <Deserializer> = p victoryFuel Deserializer.
 
 	private JSObject <Alien[Object]> = p js global at: 'Object'.
     private crypto <Alien[Crypto]> = p js global at: 'crypto'.
+    private Blob = p js global at: 'Blob'.
 
     (* The browser's IndexedDB API object *)
     private indexedDB <Alien[IndexedDB]> = p js global at: 'indexedDB'.
@@ -60,16 +59,22 @@ public fromJSObject: o <Alien[JSObject]> usingClass: k <Class[IDBObject]> ^<IDBO
 	^instance
 )
 )
-public class IDBSubject onModel: m <Object> modelClasses: i <Array[Class[IDBObject]]>
+public class IDBSubject onModel: m <Object> modelClasses: mc <Array[Class[IDBObject]]>
 (* :exemplar_1: [
-	IDBSubject onModel: List new modelClasses: {  } ] value
+	| 
+    Klass = ClassDeclarationBuilder fromSource: 'public class ApplicationModel = (| public version ::= 1. |)()'.
+    DMKlass = ClassDeclarationBuilder fromSource: 'class DBModel =(| public slot1 ::= 'dummy'. public slot2 ::= 'foo'. |)()'.
+    |
+    Klass install.
+    DMKlass install.
+	IDBSubject onModel: ApplicationModel new modelClasses: { DBModel } ] value
 *)
 = Subject onModel: m (
-|
- (* The connection to the application's database *)
- public db <Alien[IDBDatabase]>
- public modelClasses = i.
- |
+	|
+ 	(* The connection to the application's database *)
+ 	public db <Alien[IDBDatabase]>
+ 	public modelClasses <Array> = mc.
+	|
 ) (
 add: o <IDBObject> = (
 	add: o onComplete: [ :e | ] onError: [ :e | ]
@@ -80,17 +85,6 @@ delete: o <IDBObject> = (
 put: o <IDBObject> = (
 	put: o onComplete: [ :e | ] onError: [ :e | ]
 )
-onGet: e <Alien[Event]>^<IDBObject> = (
-	|
-    target <Alien> = event at: #target.
-    src <String> = (target at: 'source') at: 'name'.
-    o <Alien[JSObject]> = target at: #result.
-    modelClass <Class[IDBObject]>
-    |
-    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
-    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
-   	^ IDBObject fromJSObject: o usingClass: modelClass.
-)
 get: aUUID <UUID> forClass: c <Class[IDBObject]> = (
 (* Not quite ready for primetime *)
 		| tx store req storeName = (ClassMirror reflecting: c) mixin name. |
@@ -99,9 +93,6 @@ get: aUUID <UUID> forClass: c <Class[IDBObject]> = (
     	store:: tx objectStore: storeName.
     	req:: store get: aUUID.
     	req addEventListener: 'success' handler: [ :e <Event> | onGet: e. nil ]
-)
-onAdd: event  <Alien[Event]> = (
-	'Success' out.
 )
 onBlocked: e <Alien[Event]> = (
 	'Blocked triggered' out.
@@ -154,20 +145,6 @@ public openDB: version <Integer> = (
     request addEventListener: 'error' with: [ :e <Alien[Event]> | Error signal: ((e at: #error) at: #message). nil ].
 	'IDBSubject openDB called' out.
 )
-put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
-	|
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-    req <Alien[IDBRequest]>
-	s <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    |
-	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
-    store:: tx objectStore: s.
-    req:: store put: o asJSObject.
-    req addEventListener: 'success' handler: [ :e <Alien[Event]> | self onPut: e. nil ]
-)
 delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
 	|
     tx <Alien[IDBTransaction]>
@@ -193,67 +170,25 @@ onUpgradeNeeded: event <Alien[Event]> = (
     ].
     'upgradeneeded triggered' out.
 )
-primordialObjects ^<Array[Class]> = (
-	^{
-		nil.
-		false.
-		true.
-
-		SmallInteger.
-		MediumInteger.
-		LargeInteger.
-		Float.
-		ByteArray.
-		String.
-		Array.
-		WeakArray.
-		Ephemeron.
-		Activation.
-		Closure.
-		Metaclass.
-
-		Fraction.
-		Method.
-		Class.
-		InstanceMixin.
-		ClassMixin.
-
-		Object.
-		classOf: Object.
-	}
+onAdd: event  <Alien[Event]> = (
+	(* 'Success' out. *)
 )
-public sharedObjects ^<Array[Class]> = (
-	^primordialObjects addAll: modelClasses	
-)
-serialize: anObject <IDBObject>^<Alien[Object]> = (
-	| jso <Alien[Object]> = JSObject new. |
-	jso at: 'uuid' put: anObject uuid.
-	jso at: 'psoup' put: (super serialize: anObject).
-	^jso
-)
-deserialize: anObject <IDBObject> = (
-	^super deserialize: anObject
-)
-add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
+put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
 	|
-    m <ObjectMirror> = ObjectMirror reflecting: o.
-	s <String> = m getClass mixin name.
     tx <Alien[IDBTransaction]>
     store <Alien[IDBObjectStore]>
     req <Alien[IDBRequest]>
-    serialized
+	s <String> = (ObjectMirror reflecting: o) getClass mixin name.
     |
-   (* Create the IDBTransaction *)
 	tx:: db transaction: s for: 'readwrite'.
-    tx addEventListener: 'complete' handler: completeHandler.
-    tx addEventListener: 'error' handler: errorHandler.
-
-    (* Get the IDBObjectStore from the transaction *)
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
     store:: tx objectStore: s.
-
-    (* Store the model object *)
-	req:: store add: o asJSObject.
-    req addEventListener: 'success' handler: [ :e | self onAdd: e. nil ]
+    req:: store put: (serialize: o).
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> | self onPut: e. nil ]
+)
+deserialize: o <Alien[JSObject]> usingClass: c <Class[IDBObject]>^<IDBObject> = (
+	^IDBObject fromJSObject: o usingClass: c.
 )
 onGetAll: event <Alien[Event]> ^ <List[IDBObject]> = (
 	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
@@ -269,10 +204,45 @@ onGetAll: event <Alien[Event]> ^ <List[IDBObject]> = (
     modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
     1 to: (r at: #length) do: [ :i | | m o |
     	o:: r at: (i - 1).
-        m:: IDBObject fromJSObject: o usingClass: modelClass.
+        m:: deserialize: o usingClass: modelClass.
         rslt add: m.
      ].
      ^rslt
+)
+serialize: o <IDBObject>^<Alien[JSObject]> = (
+	^o asJSObject
+)
+onGet: e <Alien[Event]>^<IDBObject> = (
+	|
+    target <Alien> = event at: #target.
+    src <String> = (target at: 'source') at: 'name'.
+    o <Alien[JSObject]> = target at: #result.
+    modelClass <Class[IDBObject]>
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
+   	^deserialize: o usingClass: modelClass.
+)
+add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
+	|
+    m <ObjectMirror> = ObjectMirror reflecting: o.
+	s <String> = m getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    serialized = serialize: o.
+    |
+   (* Create the IDBTransaction *)
+	tx:: db transaction: s for: 'readwrite'.
+    tx addEventListener: 'complete' handler: completeHandler.
+    tx addEventListener: 'error' handler: errorHandler.
+
+    (* Get the IDBObjectStore from the transaction *)
+    store:: tx objectStore: s.
+
+    (* Store the model object *)
+	req:: store add: serialized.
+    req addEventListener: 'success' handler: [ :e | self onAdd: e. nil ]
 )
 ) : (
 )
@@ -289,6 +259,27 @@ class TemporaryClass withFormat: fmt <Integer> superclass: s <Class> = (|
 public idbBasicNew ^<Bytes> = (
 	(* :literalmessage: primitive: 34 *)
 	halt.
+)
+) : (
+)
+public class IDBVFuelSubject onModel: m modelClasses: mc = IDBSubject onModel: m modelClasses: mc (
+	|
+	serializer = Serializer new.
+	deserializer = Deserializer new.
+	|
+    serializer useAdditionalObjects: modelClasses.
+) (
+serialize: anObject <IDBObject>^<Alien[JSObject]> = (
+	|
+    blob <ByteArray> = serializer serialize: anObject.
+	jso <Alien[Object]> = JSObject new. 
+	|
+	jso at: 'uuid' put: anObject uuid.
+	jso at: 'psoup' put: blob.
+	^jso
+)
+deserialize: o <Alien[JSObject]> usingClass: c <Class[IDBObject]>^<IDBObject> = (
+	^deserializer deserialize: (o at: 'psoup')
 )
 ) : (
 )

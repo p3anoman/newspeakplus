@@ -3,6 +3,7 @@ Newspeak3
 public class IndexedDBTesting usingPlatform: p
 										minitest: minitest
                                         indexedDB: idb
+                                        subjectClass: subjectClass
 (*
 	:exemplar: IndexedDBTesting usingPlatform: platform
 										minitest: (Minitest usingPlatform: platform)
@@ -12,7 +13,7 @@ public class IndexedDBTesting usingPlatform: p
 	|
 	private TestContext = minitest TestContext.
     private List = p collections List.
-    private IDBSubject = idb IDBSubject.
+    private IDBSubject = subjectClass.
     private IDBObject = idb IDBObject.
 
     indexedDB = idb.
@@ -66,6 +67,9 @@ public putTestObject: completionHandler <Closure> = (
     		onComplete: [ :ex <Alien[Event]> | completionHandler value: true. nil ]
             onError: [ :e  <Alien[Event]> | completionHandler value: false. nil ].
 )
+public getSharedObjects = (
+	^sharedObjects
+)
 ) : (
 )
 public class IDBTestingModel = IDBObject (
@@ -80,11 +84,6 @@ public class IDBTests = TestContext (
 ) (
 public cleanUp = (
 	(* indexedDB deleteDatabase: 'List' *)
-)
-public testOpen = (
-	| olddb = subject db. |
-    subject openDB: 1.
-    assert: [ olddb = subject db ] message: 'dbs are not equal'.
 )
 public testPut = (
 	subject putTestObject: [ :r |

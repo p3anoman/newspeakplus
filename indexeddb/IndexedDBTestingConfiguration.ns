@@ -10,7 +10,13 @@ public testModulesUsingPlatform: p  minitest: m = (
 	| idb = IndexedDB usingPlatform: p. |
 	^{ IndexedDBTesting usingPlatform: p 
     									minitest: m 
-                                        indexedDB: idb }
+                                        indexedDB: idb
+                                        subjectClass: idb IDBSubject.
+		IndexedDBTesting usingPlatform: p 
+    									minitest: m 
+                                        indexedDB: idb
+                                        subjectClass: idb IDBVFuelSubject.
+	}
 )
 ) : (
 )
