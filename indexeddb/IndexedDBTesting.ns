@@ -5,9 +5,10 @@ public class IndexedDBTesting usingPlatform: p
                                         indexedDB: idb
                                         subjectClass: subjectClass
 (*
-	:exemplar: IndexedDBTesting usingPlatform: platform
+	:exemplar: [ :idb | IndexedDBTesting usingPlatform: platform
 										minitest: (Minitest usingPlatform: platform)
-                                        indexedDB: (IndexedDB usingPlatform: platform)
+                                        indexedDB: idb
+                                        subjectClass: idb IDBSubject ] value: (IndexedDB usingPlatform: platform)
 *)
 = (
 	|
@@ -17,16 +18,12 @@ public class IndexedDBTesting usingPlatform: p
     private IDBObject = idb IDBObject.
 
     indexedDB = idb.
-	|
-) (
-public class TestHarness = (
-	|
-	subject = IDBTestingSubject onModel: List new.
-    
+	public subject = IDBTestingSubject onModel: List new.
+
     (* Mocks *)
-    testModel = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
-    testChildModel1 = IDBTestingChildModel new slotA: 'foo'; slotB: 'bar'; yourself.
-    testChildModel2 = IDBTestingChildModel new slotA: 'bar'; slotB: 'baz'; yourself.
+    public testModel = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
+    public testChildModel1 = IDBTestingChildModel new slotA: 'foo'; slotB: 'bar'; yourself.
+    public testChildModel2 = IDBTestingChildModel new slotA: 'bar'; slotB: 'baz'; yourself.
 	|
     subject openDB: 1
 ) (
@@ -38,9 +35,9 @@ onGetAll: event <Alien[Event]>  = (
 )
 public openDB: version <Integer> = (
 	'IDBTestingSubject openDB override' out.
-	(nil = db) ifTrue: [ 
+	(nil = db) ifTrue: [
     	'IDBTestingSubject openDB' out.
-    	super openDB: version ]	
+    	super openDB: version ]
 )
 onOpen: event <Alien[Event]> = (
 	'IDBTestingSubject openDB' out.
@@ -106,8 +103,6 @@ public class IDBTestingChildModel = (
 	public slotB
 	|
 ) (
-) : (
-)
 ) : (
 )
 ) : (
