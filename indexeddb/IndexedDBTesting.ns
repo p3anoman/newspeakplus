@@ -1,43 +1,42 @@
 Newspeak3
 'Root'
-public class IndexedDBTesting usingPlatform: p
-										minitest: minitest
-                                        indexedDB: idb
-                                        subjectClass: subjectClass
+public class IndexedDBTesting usingPlatform: p <Platform>
+										minitest: minitest <Minitest>
+                                        indexedDB: idb <IndexedDB>
+                                        subjectClass: subjectClass <Class[IDBSubject|IDBVFuelSubject]>
 (*
 	:exemplar: [ :idb | IndexedDBTesting usingPlatform: platform
 										minitest: (Minitest usingPlatform: platform)
                                         indexedDB: idb
-                                        subjectClass: idb IDBSubject ] value: (IndexedDB usingPlatform: platform)
+                                        subjectClass: idb IDBVFuelSubject ] value: (IndexedDB usingPlatform: platform)
 *)
 = (
 	|
 	private TestContext = minitest TestContext.
     private List = p collections List.
-    private IDBSubject = subjectClass.
-    private IDBObject = idb IDBObject.
+    public IDBSubjectClass  = subjectClass.
+    public IDBObject = idb IDBObject.
 
-    indexedDB = idb.
-	public subject = IDBTestingSubject onModel: List new.
-
-    (* Mocks *)
-    public testModel = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
-    public testChildModel1 = IDBTestingChildModel new slotA: 'foo'; slotB: 'bar'; yourself.
-    public testChildModel2 = IDBTestingChildModel new slotA: 'bar'; slotB: 'baz'; yourself.
+	public testConfig = subjectClass name.
 	|
-    subject openDB: 1
 ) (
-public class IDBTestingSubject onModel: m = IDBSubject onModel: m modelClasses: { IDBTestingModel. IDBTestingChildModel. } (
+public class TestHarness = (
+	|
+	subject = IDBTestingSubject onModel: List new.
+    
+    (* Mocks *)
+    testModel = IDBTestingModel new slot1: 'test1'; slot2: 'foo'; yourself.
+    testChildModel1 = IDBTestingChildModel new slotA: 'foo'; slotB: 'bar'; yourself.
+    testChildModel2 = IDBTestingChildModel new slotA: 'bar'; slotB: 'baz'; yourself.
+    testComplexModel = IDBTestingModel new slot1: 'test1'; slot2: testChildModel1; yourself.
+	|
+    subject openDB: 1.
+) (
+public class IDBTestingSubject onModel: m = IDBSubjectClass onModel: m modelClasses: { IDBTestingModel. IDBTestingChildModel. } (
 ) (
 onGetAll: event <Alien[Event]>  = (
 	'IDBTestingSubject onGetAll override' out.
 	(* Override *)
-)
-public openDB: version <Integer> = (
-	'IDBTestingSubject openDB override' out.
-	(nil = db) ifTrue: [
-    	'IDBTestingSubject openDB' out.
-    	super openDB: version ]
 )
 onOpen: event <Alien[Event]> = (
 	'IDBTestingSubject openDB' out.
@@ -67,6 +66,21 @@ public putTestObject: completionHandler <Closure> = (
 public getSharedObjects = (
 	^sharedObjects
 )
+public deserialize: bytes <ByteArray> usingClass: c <Class[IDBObject]>^<IDBObject> = (
+	^super deserialize: bytes usingClass: c
+)
+public openDB: callback <Closure> = (
+	super openDB: 1
+)
+public testDeserialize: bytes <ByteArray>^<IBObject> = (
+	^deserializer deserialize: bytes
+)
+public testSerialize: o = (
+	^serializer serialize: o
+)
+public serialize: o = (
+	^super serialize: o
+)
 ) : (
 )
 public class IDBTestingModel = IDBObject (
@@ -86,13 +100,27 @@ public testPut = (
 	subject putTestObject: [ :r |
 		assert: [ r ] message: 'Put failed' ]
 )
+public testDelete = (
+	subject deleteTestObject: [ :r |
+		assert: [ r ] message: 'Failed to delete' ].
+)
 public testAdd = (
     subject addTestObject: [ :r |
 		assert: [ r ] message: 'Add failed' ].
 )
-public testDelete = (
-	subject deleteTestObject: [ :r |
-		assert: [ r ] message: 'Failed to delete' ].
+public testSerializeDeserialize = (
+	| s o |
+    s:: subject testSerialize: testModel.
+    o:: subject testDeserialize: s.
+    assert: [ o slot1 = testModel slot1 ] message: 'Serialize/Deserialize failed slot1'.
+    assert: [ o slot2 = testModel slot2 ] message: 'Serialize/Deserialize failed slot2'.
+)
+public testComplexSD = (
+	| s o |
+    s:: subject testSerialize: testComplexModel.
+    o:: subject testDeserialize: s.
+    assert: [ o slot1 = testComplexModel slot1 ] message: 'Complex Serialize/Deserialize failed slot1'.
+    assert: [ o slot2 slotA = testComplexModel slot2 slotA ] message: 'Complex Serialize/Deserialize failed slot2'
 )
 ) : (
 TEST_CONTEXT = ()
@@ -103,6 +131,8 @@ public class IDBTestingChildModel = (
 	public slotB
 	|
 ) (
+) : (
+)
 ) : (
 )
 ) : (

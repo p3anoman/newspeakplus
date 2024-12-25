@@ -265,9 +265,14 @@ registerRef: object = (
 	refs at: nextRefIndex put: object.
 	nextRefIndex:: 1 + nextRefIndex.
 )
-public useAdditionalObjects: additionalObjects <List[Class]> = (
+public useAdditionalObjects: additionalObjects <List[Class[IDBObject]]> = (
     | sos = sharedObjects. |
-    additionalObjects do: [ :ao | (sos includes: ao) ifFalse: [ sos add: ao. sharedObjects_slot: sos ]].
+    additionalObjects do: [ :ao | (sos includes: ao) ifFalse: [ sos add: ao. ]].
+	sharedObjects_slot: sos
+    (* 
+    sharedObjects_slot isNil ifFalse: [ ^self ].
+    sharedObjects_slot:: sharedObjects addAll: additionalObjects; yourself.
+    *)
 )
 ) : (
 )
@@ -745,14 +750,14 @@ analyzeEphemeronList = (
     ] ifFalse: [ false ]
   ]
 )
-public serialize: root withAdditionalObjects: ao <List[Class]> = (
-	(* Add additionalObjects to the sharedObjects array before serialization *)
-    useAdditionalObjects: ao.
-	^serialize: root	
-)
-public useAdditionalObjects: additionalObjects <List[Class]> = (
-    | sos = sharedObjects. |
-    additionalObjects do: [ :ao | (sos includes: ao) ifFalse: [ sos add: ao. sharedObjects_slot: sos ]].
+public useAdditionalObjects: additionalObjects <List[Class[IDBObject]]> = (
+	| sos = sharedObjects. |
+    additionalObjects do: [ :ao <Class[IDBObject]> | (sos includes: ao) ifFalse: [ sos add: ao. ]].
+	sharedObjects_slot: sos
+    (* 
+	sharedObjects_slot isNil ifFalse: [ ^self ].
+    sharedObjects_slot:: sharedObjects addAll: additionalObjects; yourself.
+    *)
 )
 ) : (
 )
