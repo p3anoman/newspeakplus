@@ -156,10 +156,10 @@ public transactionType = (
 )
 ) : (
 )
-public class BankAccountSubject onModel: b <BigBrotherTrust> 
-														 idbObjectClasses: i <Array[Class[IDBObject]]> 
-= IDBSubject onModel: b 
-						idbObjectClasses: i (
+public class BankAccountSubject onModel: m <BigBrotherTrust> 
+														 modelClasses: mc <Array[Class[IDBObject]]> 
+= IDBSubject onModel: m 
+						modelClasses: mc (
 ) (
 withdrawals = (
 		^txSubjets select: [ :t | t amount < 0 ]

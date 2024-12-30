@@ -14,11 +14,15 @@ public class IndexedDB usingPlatform: p = (
 	public Subject <Subject> = p hopscotch Subject.
 	private Serializer <Serializer> = p victoryFuel Serializer.
 	private Deserializer <Deserializer> = p victoryFuel Deserializer.
+    private ByteArray <ByteArray> = p victoryFuel ByteArray.
 
-	private JSObject <Alien[Object]> = p js global at: 'Object'.
     private crypto <Alien[Crypto]> = p js global at: 'crypto'.
-    private Blob = p js global at: 'Blob'.
-
+	private JSObject <Alien[Object]> = p js global at: 'Object'.
+    private JSArray <Alien[Array]> = p js global at: 'Array'.
+    private JSUint8Array <Alien[Uint8Array]> = p js global at: 'Uint8Array'.
+    private Blob <Alien[Blob]> = p js global at: 'Blob'.
+    private FileReader <Alien[FileReader]> = p js global at: 'FileReader'.
+    
     (* The browser's IndexedDB API object *)
     private indexedDB <Alien[IndexedDB]> = p js global at: 'indexedDB'.
 	|
@@ -187,42 +191,6 @@ put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
     req:: store put: (serialize: o).
     req addEventListener: 'success' handler: [ :e <Alien[Event]> | self onPut: e. nil ]
 )
-deserialize: o <Alien[JSObject]> usingClass: c <Class[IDBObject]>^<IDBObject> = (
-	^IDBObject fromJSObject: o usingClass: c.
-)
-onGetAll: event <Alien[Event]> ^ <List[IDBObject]> = (
-	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
-    (* Returns a list of one model classes's instances. The model class used for instantiation is determined by the event source. *)
-	|
-    target <Alien> = event at: #target.
-    r <Array> = target at: #result.
-    src <String> = (target at: 'source') at: 'name'.
-    modelClass <Class[IDBObject]>
-    rslt <List> = List new.
-    |
-    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
-    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
-    1 to: (r at: #length) do: [ :i | | m o |
-    	o:: r at: (i - 1).
-        m:: deserialize: o usingClass: modelClass.
-        rslt add: m.
-     ].
-     ^rslt
-)
-serialize: o <IDBObject>^<Alien[JSObject]> = (
-	^o asJSObject
-)
-onGet: e <Alien[Event]>^<IDBObject> = (
-	|
-    target <Alien> = event at: #target.
-    src <String> = (target at: 'source') at: 'name'.
-    o <Alien[JSObject]> = target at: #result.
-    modelClass <Class[IDBObject]>
-    |
-    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
-    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
-   	^deserialize: o usingClass: modelClass.
-)
 add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
 	|
     m <ObjectMirror> = ObjectMirror reflecting: o.
@@ -244,6 +212,81 @@ add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <
 	req:: store add: serialized.
     req addEventListener: 'success' handler: [ :e | self onAdd: e. nil ]
 )
+onGetAll: event <Alien[Event]> ^ <List[IDBObject]> = (
+	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
+    (* Returns a list of one model classes's instances. The model class used for instantiation is determined by the event source. *)
+	|
+    target <Alien> = event at: #target.
+    r <Array> = target at: #result.
+    src <String> = (target at: 'source') at: 'name'.
+    modelClass <Class[IDBObject]>
+    rslt <List> = List new.
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
+    1 to: (r at: #length) do: [ :i | | m o |
+    	o:: r at: (i - 1).
+        m:: deserialize: o.
+        rslt add: m.
+     ].
+     ^rslt
+)
+onGet: e <Alien[Event]>^<IDBObject> = (
+	|
+    target <Alien> = event at: #target.
+    src <String> = (target at: 'source') at: 'name'.
+    o <Alien[JSObject]> = target at: #result.
+    modelClass <Class[IDBObject]>
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
+   	^deserialize: o.
+)
+readBlob: blob <Alien[Blob]> onComplete: completeHandler <Closure> = (
+	| file = FileReader new. bytes |	
+    file addEventListener: 'loadend' handler: [ :e <Alien[ProgressEvent]> |
+    	|
+        reader <Alien[FileReader]> = e at: 'target'.
+		buffer <Alien[ArrayBuffer]> = reader at: 'result'.
+		ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.
+        n <Integer> = ui8 at: 'byteLength'.
+        |
+    	bytes:: ByteArray new: n.
+    	1 to: n do: [ :i | bytes at: i put: (ui8 at: (i - 1)) ].
+        completeHandler value: bytes.
+        nil
+    ].
+    file readAsArrayBuffer: blob
+)
+deserialize: o <Alien[Object]>^<IDBObject> = (
+	|
+    deserializer <Deserializer> = Deserializer new.
+    blob
+    rslt
+    |
+    blob:: o at: 'psoup'.
+    readBlob: blob
+    onComplete: [ :bytes <ByteArray> | rslt:: deserializer deserialize: bytes. nil ].
+    ^rslt
+)
+serialize: anObject <IDBObject>^<Alien[Object]> = (
+	|
+    serializer = Serializer new useAdditionalObjects: modelClasses; yourself.
+    bytes <ByteArray> = serializer serialize: anObject.
+    ui8 <Alien[Uint8Array]> = JSUint8Array new: bytes size.
+    (* array <Alien[Array]> = JSArray new. *)
+	jso <Alien[Object]> = JSObject new.
+	options <Alien[Object]> = JSObject new.
+    blob
+	|
+	1 to: bytes size do: [ :i | ui8 at: (i - 1) put: (bytes at: i) ]. 
+	(* array at: 0 put: ui8. *)
+    opetions at: 'type' put: 'application/octet-stream'.
+	blob:: Blob new: ui8 with: options.
+    jso at: 'uuid' put: anObject uuid.
+	jso at: 'psoup' put: blob.
+	^jso
+)
 ) : (
 )
 class TemporaryClass withFormat: fmt <Integer> superclass: s <Class> = (|
@@ -259,27 +302,6 @@ class TemporaryClass withFormat: fmt <Integer> superclass: s <Class> = (|
 public idbBasicNew ^<Bytes> = (
 	(* :literalmessage: primitive: 34 *)
 	halt.
-)
-) : (
-)
-public class IDBVFuelSubject onModel: m modelClasses: mc = IDBSubject onModel: m modelClasses: mc (
-	|
-	serializer = Serializer new.
-	deserializer = Deserializer new.
-	|
-    serializer useAdditionalObjects: modelClasses.
-) (
-serialize: anObject <IDBObject>^<Alien[JSObject]> = (
-	|
-    blob <ByteArray> = serializer serialize: anObject.
-	jso <Alien[Object]> = JSObject new. 
-	|
-	jso at: 'uuid' put: anObject uuid.
-	jso at: 'psoup' put: blob.
-	^jso
-)
-deserialize: o <Alien[JSObject]> usingClass: c <Class[IDBObject]>^<IDBObject> = (
-	^deserializer deserialize: (o at: 'psoup')
 )
 ) : (
 )

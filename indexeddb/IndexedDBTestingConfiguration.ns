@@ -2,8 +2,8 @@ Newspeak3
 'Root'
 class IndexedDBTestingConfiguration packageTestsUsing: manifest = (
 	|
+	private IndexedDB = manifest IndexedDB.
 	private IndexedDBTesting = manifest IndexedDBTesting.
-    private IndexedDB = manifest IndexedDB.
 	|
 ) (
 public testModulesUsingPlatform: p  minitest: m = (
@@ -12,10 +12,6 @@ public testModulesUsingPlatform: p  minitest: m = (
     									minitest: m 
                                         indexedDB: idb
                                         subjectClass: idb IDBSubject.
-		IndexedDBTesting usingPlatform: p 
-    									minitest: m 
-                                        indexedDB: idb
-                                        subjectClass: idb IDBVFuelSubject.
 	}
 )
 ) : (
