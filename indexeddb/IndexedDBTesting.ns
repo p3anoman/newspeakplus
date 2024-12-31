@@ -59,6 +59,9 @@ public testSerialize: o = (
 public testDeserialize: o <Alien[Object]>^<IDBObject> = (
 	^super deserialize: o
 )
+public testDeserialize: o <Alien[Object]> onSuccess: aBlock = (
+	super deserialize: o onSuccess: aBlock
+)
 ) : (
 )
 public class IDBTestingModel = IDBObject (
@@ -73,20 +76,6 @@ public class IDBTests = TestContext (
 ) (
 public cleanUp = (
 	(* indexedDB deleteDatabase: 'List' *)
-)
-public testSerializeDeserialize = (
-	| m = modelBasic. s o |
-    s:: subject testSerialize: m.
-    o:: subject testDeserialize: s.
-    assert: [ o slot1 = m slot1 ] message: 'Serialize/Deserialize failed slot1'.
-    assert: [ o slot2 = m slot2 ] message: 'Serialize/Deserialize failed slot2'.
-)
-public testSerializeDeserializeComplex = (
-	| m = modelComplex. s o |
-    s:: subject testSerialize: m.
-    o:: subject testDeserialize: s.
-    assert: [ o slot1 = m slot1 ] message: 'Complex Serialize/Deserialize failed slot1'.
-    assert: [ o slot2 slotA = m slot2 slotA ] message: 'Complex Serialize/Deserialize failed slot2'
 )
 public modelChild2 =  (
     ^IDBTestingChildModel new slotA: 'foo2'; slotB: 'bar2'; yourself.
@@ -105,24 +94,81 @@ public modelList =  (
 public modelComplex =  (
     ^IDBTestingModel new slot1: 'complex'; slot2: modelChild1; yourself.
 )
-public testSerializeDeserializeList = (
-	| m = modelList. s o |
-    s:: subject testSerialize: m.
-    o:: subject testDeserialize: s.
-    assert: [ o slot1 = m slot1 ] message: 'List Serialize/Deserialize failed slot1'.
-    assert: [ o slot2 slotA = m slot2 slotA ] message: 'List Serialize/Deserialize failed slot2'
-)
 public testAdd = (
     subject addTestObject: modelBasic onComplete: [ :r |
 		assert: [ r ] message: 'Add failed' ].
 )
-public testDelete = (
-	subject deleteTestObject: basicModel onComplete: [ :r |
-		assert: [ r ] message: 'Failed to delete' ].
-)
 public testPut = (
 	subject putTestObject: modelBasic onComplete: [ :r |
 		assert: [ r ] message: 'Put failed' ]
+)
+public modelArray =  (
+	| list = Array new: 2. |
+    list at: 1 put: modelChild1; at: 2 put: modelChild2; yourself.
+	^IDBTestingModel new slot1: 'list'; slot2: list; yourself.
+)
+public testDelete = (
+	subject deleteTestObject: modelBasic onComplete: [ :r |
+		assert: [ r ] message: 'Failed to delete' ].
+)
+public testSerializeDeserialize = (
+	| m = modelBasic. s o |
+    s:: subject testSerialize: m.
+   	subject testDeserialize: s onSuccess: [ :o |
+    	assert: [ o slot1 = m slot1 ] message: 'Serialize/Deserialize failed slot1'.
+    	assert: [ o slot2 = m slot2 ] message: 'Serialize/Deserialize failed slot2'.
+	]
+)
+public testSerializeDeserializeComplex = (
+	| m = modelComplex. s o |
+    s:: subject testSerialize: m.
+    subject testDeserialize: s onSucess: [ :o |
+    	assert: [ o slot1 = m slot1 ] message: 'Complex Serialize/Deserialize failed slot1'.
+    	assert: [ o slot2 slotA = m slot2 slotA ] message: 'Complex Serialize/Deserialize failed slot2'
+	]
+)
+public testSerializeDeserializeArray = (
+	|
+    m1 <IDBTestingModel> = modelArray.
+    m2 <IDBTestingModel>
+    o <Alien[Object]>
+    a1 <List>
+    a2 <List>
+    c1 <IDBTestingChildModel>
+    c2 <IDBTestingChildModel>
+    |
+    o:: subject testSerialize: m1.
+    subject testDeserialize: o onSuccess: [ :m2 |
+    	assert: [ m2 slot1 = m1 slot1 ] message: 'List Serialize/Deserialize failed slot1'.
+    
+    	a1:: m1 slot2. a2:: m2 slot2.
+    	c1:: a1 at: 1. c2:: a2 at: 1.
+    	assert: [ c1 slotA = c2 slotA ] message: 'List Serialize/Deserialize failed Item 1 slotA'.
+    	assert: [ c1 slotB = c2 slotB ] message: 'List Serialize/Deserialize failed Item 1 slotB'.
+	]
+)
+public testSerializeDeserializeList = (
+	|
+    m1 <IDBTestingModel> = modelList.
+    m2 <IDBTestingModel>
+    o <Alien[Object]>
+    a1 <List>
+    a2 <List>
+    c1 <IDBTestingChildModel>
+    c2 <IDBTestingChildModel>
+    |
+    o:: subject testSerialize: m1.
+    subject testDeserialize: o onSuccess: [ :m2 |
+		assert: [ m2 slot1 = m1 slot1 ] message: 'List Serialize/Deserialize failed slot1'.
+    
+    	a1:: m1 slot2. a2:: m2 slot2.
+    	c1:: a1 at: 1. c2:: a2 at: 1.
+    	assert: [ c1 slotA = c2 slotA ] message: 'List Serialize/Deserialize failed Item 1 slotA'.
+    	assert: [ c1 slotB = c2 slotB ] message: 'List Serialize/Deserialize failed Item 1 slotB'.
+    	c1:: a1 at: 2. c2:: a2 at: 2.
+    	assert: [ c1 slotA = c2 slotA ] message: 'List Serialize/Deserialize failed Item 2 slotA'.
+    	assert: [ c1 slotB = c2 slotB ] message: 'List Serialize/Deserialize failed Item 2 slotB'.
+	]
 )
 ) : (
 TEST_CONTEXT = ()

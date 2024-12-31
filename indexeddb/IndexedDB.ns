@@ -30,38 +30,7 @@ public class IndexedDB usingPlatform: p = (
 public class IDBObject new = (
 	| public uuid = crypto randomUUID. |
 ) (
-public asJSObject ^<Alien[JSObject]> = (
-	|
-    m <ObjectMirror> = ObjectMirror reflecting: self.
-    cm <ClassMirror> = m getClass.
-    o <Alien> = JSObject new.
-    |
-	cm slots do: [ :slot | | n v |
-    	n: slot name.
-        v:: m getSlot: n.
-        o at: n put: v reflectee
-    ].
-	^o
-)
 ) : (
-private class: k <Class> adoptInstance: object <VictoryFuel|IDBObject>= (
-	(* :literalmessage: primitive: 134 *)
-	halt.
-)
-public fromJSObject: o <Alien[JSObject]> usingClass: k <Class[IDBObject]> ^<IDBObject> = (
-	|
-	keys <Alien[Array[String]]> = JSObject keys: o.
-	slotCount <Integer> = keys at: 'length'.
-	values <Alien[Array[String|Number|Boolean|Object|Array]]> = JSObject values: o.
-	tmpClass <TemporaryClass> = TemporaryClass withFormat: slotCount superclass: Object.
-	instance <VictoryFuel> = tmpClass idbBasicNew.
-	mirror <ObjectMirror>
-	|
-	class: k adoptInstance: instance.
-	mirror:: ObjectMirror reflecting: instance.
-	1 to: slotCount do: [ :i | mirror setSlot: (keys at: i-1) to: (values at: i-1). ].
-	^instance
-)
 )
 public class IDBSubject onModel: m <Object> modelClasses: mc <Array[Class[IDBObject]]>
 (* :exemplar_1: [
@@ -242,17 +211,6 @@ onGet: e <Alien[Event]>^<IDBObject> = (
     modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
    	^deserialize: o.
 )
-deserialize: o <Alien[Object]>^<IDBObject> = (
-	|
-    deserializer <Deserializer> = Deserializer new.
-    blob
-    rslt
-    |
-    blob:: o at: 'psoup'.
-    readBlob: blob
-    onComplete: [ :bytes <ByteArray> | rslt:: deserializer deserialize: bytes. nil ].
-    ^rslt
-)
 readBlob: blob <Alien[Blob]> onComplete: completeHandler <Closure> = (
 	| file = FileReader new. bytes |	
     file addEventListener: 'loadend' handler: [ :e <Alien[ProgressEvent]> |
@@ -287,21 +245,17 @@ serialize: anObject <IDBObject>^<Alien[Object]> = (
 	jso at: 'psoup' put: blob.
 	^jso
 )
-) : (
-)
-class TemporaryClass withFormat: fmt <Integer> superclass: s <Class> = (|
-	superclass <Class> = s.
-	methods <List> = {}.
-	enclosingObject <Object> = nil.
-	mixin <Mixin> = nil.
-	classIndex <Integer> (* < ? > *)
-	format <Integer> = fmt.
-	public name  <String> = 'IDBVictoryFuelObject'.
-	subclasses <List> (* < ? > *)
-|) (
-public idbBasicNew ^<Bytes> = (
-	(* :literalmessage: primitive: 34 *)
-	halt.
+deserialize: o <Alien[Object]> onSuccess: successHandler <Closure> = (
+	|
+    deserializer <Deserializer> = Deserializer new.
+    blob <Alien[Blob]> = o at: 'psoup'.
+    rslt
+    |
+    readBlob: blob
+    onComplete: [ :bytes <ByteArray> |
+    	rslt:: deserializer deserialize: bytes.
+        successHandler value: rslt.
+        nil ].
 )
 ) : (
 )
