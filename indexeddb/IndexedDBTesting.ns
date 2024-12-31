@@ -35,9 +35,6 @@ onOpen: event <Alien[Event]> = (
 public openDB: callback <Closure> = (
 	super openDB: 1
 )
-public serialize: o = (
-	^super serialize: o
-)
 public deleteTestObject: m <IDBTestingModel> onComplete: completionHandler <Closure> = (
     add: m.
 	delete: m
@@ -59,10 +56,7 @@ public addTestObject: m onComplete: completionHandler <Closure> = (
 public testSerialize: o = (
 	^super serialize: o
 )
-public testDeserialize: bytes <ByteArray>^<IBObject> = (
-	^super deserialize: bytes
-)
-public deserialize: o <Alien[Object]>^<IDBObject> = (
+public testDeserialize: o <Alien[Object]>^<IDBObject> = (
 	^super deserialize: o
 )
 ) : (

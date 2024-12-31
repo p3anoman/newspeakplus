@@ -242,6 +242,17 @@ onGet: e <Alien[Event]>^<IDBObject> = (
     modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
    	^deserialize: o.
 )
+deserialize: o <Alien[Object]>^<IDBObject> = (
+	|
+    deserializer <Deserializer> = Deserializer new.
+    blob
+    rslt
+    |
+    blob:: o at: 'psoup'.
+    readBlob: blob
+    onComplete: [ :bytes <ByteArray> | rslt:: deserializer deserialize: bytes. nil ].
+    ^rslt
+)
 readBlob: blob <Alien[Blob]> onComplete: completeHandler <Closure> = (
 	| file = FileReader new. bytes |	
     file addEventListener: 'loadend' handler: [ :e <Alien[ProgressEvent]> |
@@ -258,31 +269,20 @@ readBlob: blob <Alien[Blob]> onComplete: completeHandler <Closure> = (
     ].
     file readAsArrayBuffer: blob
 )
-deserialize: o <Alien[Object]>^<IDBObject> = (
-	|
-    deserializer <Deserializer> = Deserializer new.
-    blob
-    rslt
-    |
-    blob:: o at: 'psoup'.
-    readBlob: blob
-    onComplete: [ :bytes <ByteArray> | rslt:: deserializer deserialize: bytes. nil ].
-    ^rslt
-)
 serialize: anObject <IDBObject>^<Alien[Object]> = (
 	|
     serializer = Serializer new useAdditionalObjects: modelClasses; yourself.
     bytes <ByteArray> = serializer serialize: anObject.
     ui8 <Alien[Uint8Array]> = JSUint8Array new: bytes size.
-    (* array <Alien[Array]> = JSArray new. *)
+    blobParts <Alien[Array]> = JSArray new.
 	jso <Alien[Object]> = JSObject new.
 	options <Alien[Object]> = JSObject new.
     blob
 	|
 	1 to: bytes size do: [ :i | ui8 at: (i - 1) put: (bytes at: i) ]. 
-	(* array at: 0 put: ui8. *)
-    opetions at: 'type' put: 'application/octet-stream'.
-	blob:: Blob new: ui8 with: options.
+    blobParts at: 0 put: ui8.
+    options at: 'type' put: 'application/octet-stream'.
+	blob:: Blob new: blobParts with: options.
     jso at: 'uuid' put: anObject uuid.
 	jso at: 'psoup' put: blob.
 	^jso
