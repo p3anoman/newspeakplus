@@ -62,6 +62,9 @@ public testDeserialize: o <Alien[Object]>^<IDBObject> = (
 public testDeserialize: o <Alien[Object]> onSuccess: aBlock = (
 	super deserialize: o onSuccess: aBlock
 )
+public getTestObject: u forClass: c onComplete: completed = (
+	super get: u forClass: c onComplete: completed.
+)
 ) : (
 )
 public class IDBTestingModel = IDBObject (
@@ -119,14 +122,6 @@ public testSerializeDeserialize = (
     	assert: [ o slot2 = m slot2 ] message: 'Serialize/Deserialize failed slot2'.
 	]
 )
-public testSerializeDeserializeComplex = (
-	| m = modelComplex. s o |
-    s:: subject testSerialize: m.
-    subject testDeserialize: s onSucess: [ :o |
-    	assert: [ o slot1 = m slot1 ] message: 'Complex Serialize/Deserialize failed slot1'.
-    	assert: [ o slot2 slotA = m slot2 slotA ] message: 'Complex Serialize/Deserialize failed slot2'
-	]
-)
 public testSerializeDeserializeArray = (
 	|
     m1 <IDBTestingModel> = modelArray.
@@ -169,6 +164,24 @@ public testSerializeDeserializeList = (
     	assert: [ c1 slotA = c2 slotA ] message: 'List Serialize/Deserialize failed Item 2 slotA'.
     	assert: [ c1 slotB = c2 slotB ] message: 'List Serialize/Deserialize failed Item 2 slotB'.
 	]
+)
+public testSerializeDeserializeComplex = (
+	| m = modelComplex. s o |
+    s:: subject testSerialize: m.
+    subject testDeserialize: s onSuccess: [ :o |
+    	assert: [ o slot1 = m slot1 ] message: 'Complex Serialize/Deserialize failed slot1'.
+    	assert: [ o slot2 slotA = m slot2 slotA ] message: 'Complex Serialize/Deserialize failed slot2'
+	]
+)
+public testGet = (
+	| m1 = modelBasic. |
+    subject addTestObject: m1 onComplete: [ :r |
+    	subject getTestObject: m1 uuid forClass: IDBTestingModel onComplete: [ :m2 |
+        	assert: [ m1 uuid = m2 uuid ] message: 'Get uuid failed'.
+        	assert: [ m1 slot1 = m2 slot1 ] message: 'Get slot1 failed'.
+            assert: [ m1 slot2 = m2 slot2 ] message: 'Get slot2 failed'.
+		]
+	]	
 )
 ) : (
 TEST_CONTEXT = ()

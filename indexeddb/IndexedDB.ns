@@ -58,15 +58,6 @@ delete: o <IDBObject> = (
 put: o <IDBObject> = (
 	put: o onComplete: [ :e | ] onError: [ :e | ]
 )
-get: aUUID <UUID> forClass: c <Class[IDBObject]> = (
-(* Not quite ready for primetime *)
-		| tx store req storeName = (ClassMirror reflecting: c) mixin name. |
-    	tx:: db transaction: storeName for: 'readonly'.
-   		tx addEventListener: 'complete' handler: [ :e | onTxComplete: e. nil ].
-    	store:: tx objectStore: storeName.
-    	req:: store get: aUUID.
-    	req addEventListener: 'success' handler: [ :e <Event> | onGet: e. nil ]
-)
 onBlocked: e <Alien[Event]> = (
 	'Blocked triggered' out.
 )
@@ -181,36 +172,6 @@ add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <
 	req:: store add: serialized.
     req addEventListener: 'success' handler: [ :e | self onAdd: e. nil ]
 )
-onGetAll: event <Alien[Event]> ^ <List[IDBObject]> = (
-	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
-    (* Returns a list of one model classes's instances. The model class used for instantiation is determined by the event source. *)
-	|
-    target <Alien> = event at: #target.
-    r <Array> = target at: #result.
-    src <String> = (target at: 'source') at: 'name'.
-    modelClass <Class[IDBObject]>
-    rslt <List> = List new.
-    |
-    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
-    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
-    1 to: (r at: #length) do: [ :i | | m o |
-    	o:: r at: (i - 1).
-        m:: deserialize: o.
-        rslt add: m.
-     ].
-     ^rslt
-)
-onGet: e <Alien[Event]>^<IDBObject> = (
-	|
-    target <Alien> = event at: #target.
-    src <String> = (target at: 'source') at: 'name'.
-    o <Alien[JSObject]> = target at: #result.
-    modelClass <Class[IDBObject]>
-    |
-    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
-    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
-   	^deserialize: o.
-)
 readBlob: blob <Alien[Blob]> onComplete: completeHandler <Closure> = (
 	| file = FileReader new. bytes |	
     file addEventListener: 'loadend' handler: [ :e <Alien[ProgressEvent]> |
@@ -256,6 +217,61 @@ deserialize: o <Alien[Object]> onSuccess: successHandler <Closure> = (
     	rslt:: deserializer deserialize: bytes.
         successHandler value: rslt.
         nil ].
+)
+onGetAll: event <Alien[Event]> ^ <List[IDBObject]> = (
+	(* This is the default 'success' handler for the (IDBObjectStore getAll API. *)
+    (* Returns a list of one model classes's instances. The model class used for instantiation is determined by the event source. *)
+	|
+    target <Alien> = event at: #target.
+    r <Array> = target at: #result.
+    src <String> = (target at: 'source') at: 'name'.
+    modelClass <Class[IDBObject]>
+    rslt <List> = List new.
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
+    1 to: (r at: #length) do: [ :i | | o |
+    	o:: r at: (i - 1).
+        deserialize: o onSuccess: [ :m | 'deserialized' out. rslt add: m ].
+     ].
+     ^rslt
+)
+onGet: e <Alien[Event]>^<IDBObject> = (
+	|
+    target <Alien> = event at: #target.
+    src <String> = (target at: 'source') at: 'name'.
+    o <Alien[JSObject]> = target at: #result.
+    modelClass <Class[IDBObject]>
+    rslt
+    |
+    modelClass:: modelClasses detect: [ :cls | cls name = src ] ifNone: [ nil ].
+    modelClass isNil ifTrue: [ Error signal: 'model class not found' ].
+   	deserialize: o onSuccess: [ :obj <IDBObject> | rslt: obj. nil ].
+    ^rslt
+)
+get: u <UUID> forClass: c <Class[IDBObject]> onComplete: complete = (
+		|
+        storeName <String> = (ClassMirror reflecting: c) mixin name.
+        tx <Alien[IDBTransaction]>
+        store <Alien[IDBObjectStore]>
+        req <Alien[IDBRequeste]>
+        |
+    	tx:: db transaction: storeName for: 'readonly'.
+   		tx addEventListener: 'complete' handler: [ :e <Event> | onTxComplete: e. nil ].
+    	store:: tx objectStore: storeName.
+    	req:: store get: u.
+    	req addEventListener: 'success' handler: [ :e <Event> |
+        	|
+    		target <Alien> = e at: #target.
+    		src <String> = (target at: 'source') at: 'name'.
+    		o <Alien[JSObject]> = target at: #result.
+            |
+			deserialize: o onSuccess: [ :m <IDBObject> |
+                'deserialize get' out.
+                complete value: m.
+                nil ].
+           nil 
+		]
 )
 ) : (
 )
