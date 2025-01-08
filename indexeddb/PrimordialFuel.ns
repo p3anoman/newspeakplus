@@ -26,7 +26,7 @@ private Method = k Method.
 private Class = k Class.
 private InstanceMixin = k InstanceMixin.
 private ClassMixin = k ClassMixin.
-private sharedObjects_slot
+private additionalObjects_slot
 |) (
 public class Deserializer = (|
 stream <ReadStream>
@@ -264,15 +264,6 @@ readRef = (
 registerRef: object = (
 	refs at: nextRefIndex put: object.
 	nextRefIndex:: 1 + nextRefIndex.
-)
-public useAdditionalObjects: additionalObjects <List[Class[IDBObject]]> = (
-    | sos = sharedObjects. |
-    additionalObjects do: [ :ao | (sos includes: ao) ifFalse: [ sos add: ao. ]].
-	sharedObjects_slot: sos
-    (* 
-    sharedObjects_slot isNil ifFalse: [ ^self ].
-    sharedObjects_slot:: sharedObjects addAll: additionalObjects; yourself.
-    *)
 )
 ) : (
 )
@@ -750,15 +741,6 @@ analyzeEphemeronList = (
     ] ifFalse: [ false ]
   ]
 )
-public useAdditionalObjects: additionalObjects <List[Class[IDBObject]]> = (
-	| sos = sharedObjects. |
-    additionalObjects do: [ :ao <Class[IDBObject]> | (sos includes: ao) ifFalse: [ sos add: ao. ]].
-	sharedObjects_slot: sos
-    (* 
-	sharedObjects_slot isNil ifFalse: [ ^self ].
-    sharedObjects_slot:: sharedObjects addAll: additionalObjects; yourself.
-    *)
-)
 ) : (
 )
 public class Snapshotter = Serializer (
@@ -1043,37 +1025,42 @@ private slotOf: object at: index put: value = (
 )
 private version = ( ^0 )
 sharedObjects = (
-	sharedObjects_slot isNil ifTrue: [
-		sharedObjects_slot:: List new
-		addAll: {
-        	nil.
-			false.
-			true.
+	^List new
+        	add: nil;
+			add: false;
+			add: true;
 
-			SmallInteger.
-			MediumInteger.
-			LargeInteger.
-			Float.
-			ByteArray.
-			String.
-            List.
-			Array.
-			WeakArray.
-			Ephemeron.
-			Activation.
-			Closure.
-			Metaclass.
+			add: SmallInteger;
+			add: MediumInteger;
+			add: LargeInteger;
+			add: Float;
+			add: ByteArray;
+			add: String;
+            (* add: List. *)
+			add: Array;
+			add: WeakArray;
+			add: Ephemeron;
+			add: Activation;
+			add: Closure;
+			add: Metaclass;
 
-			Fraction.
-			Method.
-			Class.
-			InstanceMixin.
-			ClassMixin.
+			add: Fraction;
+			add: Method;
+			add: Class;
+			add: InstanceMixin;
+			add: ClassMixin;
 
-			Object.
-			classOf: Object. };
-            yourself ].
-    ^sharedObjects_slot
+			add: Object;
+			add: (classOf: Object);
+			addAll: additionalObjects;
+			yourself
+)
+public useAdditionalObjects: aos <List[Class]> = (
+	additionalObjects isEmpty ifTrue: [ additionalObjects addAll: aos ]
+)
+additionalObjects = (
+	additionalObjects_slot isNil ifTrue: [ additionalObjects_slot:: List new ].
+    ^additionalObjects_slot
 )
 ) : (
 )
