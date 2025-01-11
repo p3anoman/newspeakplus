@@ -95,17 +95,25 @@ lastRefIndex <Integer>
 |) (
 public adoptInstances = (
 )
-public readEdges = (
-	firstRefIndex to: lastRefIndex do:
-		[:refIndex |
-		| object = refs at: refIndex. |
-		fillClosure].
-)
 public readNodes = (
 	firstRefIndex:: nextRefIndex.
 	stream unsigned timesRepeat:
-		[registerRef: (Closure withNumCopied: stream uint16)].
+		[
+        registerRef: [].
+        registerRef: stream uint16.
+        ].
 	lastRefIndex:: nextRefIndex - 1.
+)
+public readEdges = (
+	firstRefIndex to: lastRefIndex by: 2 do: [:refIndex |
+		| object = refs at: refIndex. numCopies = refs at: refIndex + 1. |
+		(*fillClosure*)
+        definingActivationOf: object put: readRef.
+        initialBCIOf: object put: readRef.
+        numArgsOf: object put: readRef.
+        1 to: numCopies do: [ :index <Integer> |
+        	copiedOf: object at: index put: readRef ]
+        ].
 )
 ) : (
 )
@@ -222,23 +230,6 @@ public readNodes = (
 )
 ) : (
 )
-public deserialize: bytes = (
-	| numClusters |
-	stream:: ReadStream over: bytes.
-	assert: [stream uint16 = 16r1984] message: 'Not VictoryFuel'.
-	assert: [stream uint16 = version] message: 'Version mismatch'.
-	numClusters:: stream uint16.
-	clusters:: Array new: numClusters.
-	refs:: Array new: stream uint32.
-	nextRefIndex:: 1.
-	sharedObjects do: [:sharedObject | registerRef: sharedObject].
-
-	1 to: numClusters do: [:i | clusters at: i put: readCluster readNodes].
-	1 to: numClusters do: [:i | (clusters at: i) readEdges].
-	1 to: numClusters do: [:i | (clusters at: i) adoptInstances].
-
-	^readRef
-)
 readCluster = (
 	| format ::= stream int32. |
 
@@ -264,6 +255,24 @@ readRef = (
 registerRef: object = (
 	refs at: nextRefIndex put: object.
 	nextRefIndex:: 1 + nextRefIndex.
+)
+public deserialize: bytes = (
+	| numClusters |
+	stream:: ReadStream over: bytes.
+	assert: [stream uint16 = 16r1984] message: 'Not VictoryFuel'.
+	assert: [stream uint16 = version] message: 'Version mismatch'.
+	numClusters:: stream uint16.
+	clusters:: Array new: numClusters.
+	refs:: Array new: stream uint32.
+	nextRefIndex:: 1.
+	sharedObjects do: [:sharedObject | registerRef: sharedObject].
+	additionalObjects do: [:additionalObject | registerRef: additionalObject].
+
+	1 to: numClusters do: [:i | clusters at: i put: readCluster readNodes].
+	1 to: numClusters do: [:i | (clusters at: i) readEdges].
+	1 to: numClusters do: [:i | (clusters at: i) adoptInstances].
+
+	^readRef
 )
 ) : (
 )
@@ -465,15 +474,6 @@ public writeNodes = (
 class ClosureCluster = (|
 objects = List new.
 |) (
-public analyze: object = (
-	objects add: object.
-
-	enqueue:: definingActivationOf: object.
-	enqueue:: initialBCIOf: object.
-	enqueue:: object numArgs.
-
-	1 to: (numCopiedOf: object) do: [:index | enqueue: (copiedOf: object at: index)].
-)
 public writeEdges = (
 	objects do: [:object |
 		writeRef:: definingActivationOf: object.
@@ -482,11 +482,21 @@ public writeEdges = (
 		1 to: (numCopiedOf: object) do: [:index | writeRef: (copiedOf: object at: index)]]
 )
 public writeNodes = (
+	'writing closure' out.
 	writeFormat: kClosureCid negated.
 	stream unsigned: objects size.
 	objects do: [:object |
 		registerRef: object.
 		stream uint16: (numCopiedOf: object)].
+)
+public analyze: object = (
+	objects add: object.
+
+	enqueue:: definingActivationOf: object.
+	enqueue:: initialBCIOf: object.
+	enqueue:: object numArgs.
+
+	1 to: (numCopiedOf: object) do: [:index | enqueue: (copiedOf: object at: index)].
 )
 ) : (
 )
@@ -656,27 +666,6 @@ analyze: object = (
 clusterForClass: klass = (
 	^clusters at: klass ifAbsentPut: [newClusterForClass: klass].
 )
-createSpecialClassClusters = (
-	| intCluster |
-	intCluster:: IntegerCluster new.
-	clusters at: SmallInteger put: intCluster.
-	clusters at: MediumInteger put: intCluster.
-	clusters at: LargeInteger put: intCluster.
-	orderedClusters add: intCluster.
-
-	(* clusters at: Float put: FloatCluster new. *)
-	orderedClusters add: (clusters at: ByteArray put: ByteArrayCluster new).
-	orderedClusters add: (clusters at: String put: StringCluster new).
-	orderedClusters add: (clusters at: Array put: ArrayCluster new).
-	orderedClusters add: (clusters at: WeakArray put: WeakArrayCluster new).
-	orderedClusters add: (clusters at: Ephemeron put: EphemeronCluster new).
-	orderedClusters add: (clusters at: Activation put: ActivationCluster new).
-	orderedClusters add: (clusters at: Closure put: ClosureCluster new).
-
-	(* Eagerly create the class. Avoids the mixin's application set from reallocating its backing store between analysis and writing edges. *)
-	RegularObjectCluster.
-	BehaviorCluster.
-)
 enqueue: object = (
 	(refs at: object ifAbsentPutVal: 0) ifTrue: [stack add: object].
 )
@@ -707,10 +696,45 @@ writeRef: object = (
 writeWeakRef: object = (
 	stream unsigned: (refs at: object ifAbsent: [refs at: nil])
 )
+analyzeEphemeronList = (
+  ephemeronList removeAllSuchThat: [:e |
+    (* Ephemeron accessors are known to be side-effect free. *)
+    (* Enliven the value and finalizer when the key is live. *)
+    (refs includesKey: e key) ifTrue: [
+      enqueue: e value.
+      enqueue: e finalizer.
+      true
+    ] ifFalse: [ false ]
+  ]
+)
+createSpecialClassClusters = (
+	| intCluster |
+	intCluster:: IntegerCluster new.
+	clusters at: SmallInteger put: intCluster.
+	clusters at: MediumInteger put: intCluster.
+	clusters at: LargeInteger put: intCluster.
+	orderedClusters add: intCluster.
+
+	(* clusters at: Float put: FloatCluster new. *)
+	orderedClusters add: (clusters at: ByteArray put: ByteArrayCluster new).
+	orderedClusters add: (clusters at: String put: StringCluster new).
+	orderedClusters add: (clusters at: Array put: ArrayCluster new).
+	orderedClusters add: (clusters at: WeakArray put: WeakArrayCluster new).
+	orderedClusters add: (clusters at: Ephemeron put: EphemeronCluster new).
+	orderedClusters add: (clusters at: Activation put: ActivationCluster new).
+	orderedClusters add: (clusters at: Closure put: ClosureCluster new).
+
+    (* additionalObjects do: [ :k <Class> | 
+    	orderedClusters add: (clusters at: k put: (RegularObjectCluster for: k)) ]. *)
+
+	(* Eagerly create the class. Avoids the mixin's application set from reallocating its backing store between analysis and writing edges. *)
+	RegularObjectCluster.
+	BehaviorCluster.
+)
 public serialize: root = (
 	nextRefIndex:: 1.
-
 	sharedObjects do: [:sharedObject | preRegisterRef: sharedObject].
+	additionalObjects do: [:additionalObject | preRegisterRef: additionalObject].
 	createSpecialClassClusters.
 
 	enqueue: root.
@@ -729,17 +753,6 @@ public serialize: root = (
 	writeRef: root.
 
 	^stream stealBytes
-)
-analyzeEphemeronList = (
-  ephemeronList removeAllSuchThat: [:e |
-    (* Ephemeron accessors are known to be side-effect free. *)
-    (* Enliven the value and finalizer when the key is live. *)
-    (refs includesKey: e key) ifTrue: [
-      enqueue: e value.
-      enqueue: e finalizer.
-      true
-    ] ifFalse: [ false ]
-  ]
 )
 ) : (
 )
@@ -1024,43 +1037,56 @@ private slotOf: object at: index put: value = (
 	halt.
 )
 private version = ( ^0 )
-sharedObjects = (
-	^List new
-        	add: nil;
-			add: false;
-			add: true;
-
-			add: SmallInteger;
-			add: MediumInteger;
-			add: LargeInteger;
-			add: Float;
-			add: ByteArray;
-			add: String;
-            (* add: List. *)
-			add: Array;
-			add: WeakArray;
-			add: Ephemeron;
-			add: Activation;
-			add: Closure;
-			add: Metaclass;
-
-			add: Fraction;
-			add: Method;
-			add: Class;
-			add: InstanceMixin;
-			add: ClassMixin;
-
-			add: Object;
-			add: (classOf: Object);
-			addAll: additionalObjects;
-			yourself
+public useAdditionalObjects: aos <Array[Class]> = (
+	additionalObjects isEmpty ifTrue: [ additionalObjects addAll: aos ] 
+    (* aos do: [ :ao <Class> |
+    	(additionalObjects includes: ao) ifFalse: [ additionalObjects add: ao ] ] *)
 )
-public useAdditionalObjects: aos <List[Class]> = (
-	additionalObjects isEmpty ifTrue: [ additionalObjects addAll: aos ]
+private definingActivationOf: closure <Closure> put: object <Object> = (
+	(* :literalmessage: primitive: 72 *)
+	halt.
 )
-additionalObjects = (
+private initialBCIOf: closure <Closure> put: object <Object> = (
+	(* :literalmessage: primitive: 74 *)
+	halt.
+)
+private numArgsOf: closure <Closure> put: object <Object> = (
+	(* :literalmessage: primitive: 76 *)
+	halt.
+)
+private additionalObjects = (
 	additionalObjects_slot isNil ifTrue: [ additionalObjects_slot:: List new ].
     ^additionalObjects_slot
+)
+sharedObjects = (
+	^{
+		nil.
+		false.
+		true.
+
+		SmallInteger.
+		MediumInteger.
+		LargeInteger.
+		Float.
+		ByteArray.
+		String.
+		Array.
+        List.
+		WeakArray.
+		Ephemeron.
+		Activation.
+		Closure.
+		Metaclass.
+
+		Fraction.
+		Method.
+		Class.
+		InstanceMixin.
+		ClassMixin.
+
+		Object.
+		classOf: Object.
+	}
 )
 ) : (
 )
