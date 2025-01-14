@@ -87,26 +87,6 @@ deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
         1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
         ^deserializer deserialize: bytes.
 )
-openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> = (
-	openDB: version onSuccess: successHandler onFailure: [ :ex | ]
-)
-openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> onFailure: failureHandler <[:Alien[event]]> = (
-	|
-	request <Alien[IDBOpenRequest]>	= indexedDB open: databaseName version: version.
-    |
-    request addEventListener: 'upgradeneeded' with: [ :e <Alien[Event]> | onUpgradeNeeded: e. nil ].
-    request addEventListener: 'blocked' with: [ :e <Alien[Event]> | onBlocked: e. nil ].
-    request addEventListener: 'error' with: [ :e <Alien[Event]> | failureHandler value: e. nil ].
-    request addEventListener: 'success' with: [ :e <Alien[Event]> |
-    	(* db:: (e at: #target) at: #result. *)
-        successHandler value: e.
-        nil
-	].
-	'IDBSubject openDB called' out.
-)
-openDB: version <Integer> = (
-	openDB: version onSuccess: [ :e | onOpen: e. nil ].
-)
 onOpen: event <Alien[Event]> = (
 	'onOpen DB called' out.
     db:: (event at: #target) at: #result.
@@ -285,6 +265,22 @@ get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandle
 		].
    		tx addEventListener: 'complete' handler: [ :e <Event> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
+)
+public openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> = (
+	openDB: version onSuccess: successHandler onFailure: [ :ex | nil ]
+)
+public openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> onFailure: failureHandler <[:Alien[Event]]> = (
+	|
+	request <Alien[IDBOpenRequest]>	= indexedDB open: databaseName version: version.
+    |
+    request addEventListener: 'upgradeneeded' with: [ :e <Alien[Event]> | onUpgradeNeeded: e. nil ].
+    request addEventListener: 'blocked' with: [ :e <Alien[Event]> | onBlocked: e. nil ].
+    request addEventListener: 'success' with: [ :e <Alien[Event]> |  successHandler value: e. nil ].
+    request addEventListener: 'error' with: [ :e <Alien[Event]> | failureHandler value: e. nil ].
+	'IDBSubject openDB called' out.
+)
+public openDB: version <Integer> = (
+	openDB: version onSuccess: [ :e | onOpen: e. nil ].
 )
 ) : (
 )

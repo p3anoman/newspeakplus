@@ -178,7 +178,7 @@ public title = (
 ) : (
 )
 public class TodoMVCSubject onModel: l <List>
-= IDBSubject onModel: l modelClasses: { TodoItem } (
+= IDBSubject onModel: l modelClasses: { TodoItem } databaseName: 'TodoMVC' databaseVersion: 1 (
   | 
   public filterState <Symbol> ::= #all. 
   todoSubjects = todos collect: [:ti <TodoItem> | TodoItemSubject onModel: ti parent: self ]. 
@@ -232,13 +232,6 @@ public refresh = (
 modelClasses = (
 	^ { TodoItem. }
 )
-onGetAll: e = (
-	| ts <List[TodoItem]> = super onGetAll: e. |
-    ts do: [ :t | 
-    	todos add: t. 
-        todoSubjects add: (TodoItemSubject onModel: t parent: self) ].
-    presenter refresh.
-)
 public delete: todoSubject <TodoItemSubject> = (
 	| todo <TodoItem> = todoSubject model. |
 	delete: todo
@@ -257,6 +250,12 @@ public addTodoNamed: n <String> = (
 )
 public put: todo <TodoItem> = (
 	super put: todo
+)
+onGetAll: ts = (
+    ts do: [ :t | 
+    	todos add: t. 
+        todoSubjects add: (TodoItemSubject onModel: t parent: self) ].
+    presenter refresh.
 )
 ) : (
 public new = (
