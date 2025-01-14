@@ -147,29 +147,6 @@ getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject
    		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
-get: uuid <UUID> forClass: c <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
-		|
-        storeName = (ClassMirror reflecting: class) mixin name.
-        tx <Alien[IDBTransaction]>
-        store <Alien[IDBObjectStore]>
-        req <Alien[IDBRequeste]>
-        |
-    	tx:: db transaction: storeName for: 'readonly'.
-    	store:: tx objectStore: storeName.
-    	req:: store get: uuid.
-    	req addEventListener: 'success' handler: [ :e <Alien[Event]> |
-            | blob <Alien[Blob]> |
-            (* pause. *)
-            blob:: req at: 'result'. 
-            blob arrayBuffer then: [ :buffer <Alien[ArrayBuffer]> |
-            	onGet: (deserialize: buffer).
-            	nil
-            ] onError: [ :ex | failureHandler value:  'Error loading data: ', ex printString. nil].
-            nil 
-		]
-   		tx addEventListener: 'complete' handler: [ :e <Event> | completionhandler value: e. nil ].
-   		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
-)
 onGetAll: r <List[IDBObject]> = (
 	'onGetAll triggered' out.
 )
@@ -286,6 +263,29 @@ delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <C
     req addEventListener: 'success' handler: [ :e <Alien[Event]> |  onDelete: e. nil ].
     tx addEventListener: 'complete' handler: completeBlock.
     tx addEventListener: 'error' handler: errorBlock.
+)
+get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
+		|
+        storeName = (ClassMirror reflecting: class) mixin name.
+        tx <Alien[IDBTransaction]>
+        store <Alien[IDBObjectStore]>
+        req <Alien[IDBRequeste]>
+        |
+    	tx:: db transaction: storeName for: 'readonly'.
+    	store:: tx objectStore: storeName.
+    	req:: store get: uuid.
+    	req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+            | blob <Alien[Blob]> |
+            (* pause. *)
+            blob:: (e at: 'target') at: 'result'. 
+            blob arrayBuffer then: [ :buffer <Alien[ArrayBuffer]> |
+            	onGet: (deserialize: buffer).
+            	nil
+            ] onError: [ :ex | failureHandler value:  'Error loading data: ', ex printString. nil].
+            nil 
+		].
+   		tx addEventListener: 'complete' handler: [ :e <Event> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
 )
 ) : (
 )

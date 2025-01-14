@@ -33,35 +33,24 @@ public class IDBTestingSubject onModel: m <Object>
                         databaseName: 'TestingDB'
                         databaseVersion: 1 (
 	| 
-   	addCallback
-    deleteCallback
-    putCallback
-    getCallback
-    getAllCallback
+   	onAddCallback
+    onDeleteCallback
+    onPutCallback
+    onGetCallback
+    onGetAllCallback
+    onGetKeysCallback
+    
     public basicModel = modelBasic. 
     |
     startUp: [ :e | nil ].
 
 	'IDBTestingSubject factory' out.
 ) (
-public getKeys = (
-	| r |
-	getKeysFor: IDBTestingModel onComplete: [ :keys <List[String]> |
-    	r: keys. nil
-	].
-    ^r
- )
 public deleteTestObject: m <IDBTestingModel> = (
     deleteTestObject: m onComplete: [ :x | nil ].
 )
 public addTestObject: o <IDBObject> = (
    addTestObject: o onComplete: [ :x | nil ]
- )
-public getKeys: c <Closure> = (
-	getKeysFor: IDBTestingModel onComplete: [ :keys <List[String]> |
-    	c value: keys.
-        nil
-	].
  )
 public startUp: successHandler = (
 	openDB: databaseVersion
@@ -71,48 +60,70 @@ public startUp: successHandler = (
         nil ]
         onFailure: [ :e | ].
 )
-onPut: e <Alien[Event]> = (
-	'onPut triggered' out.
-    putCallback value: e
-)
 public addTestObject: m onComplete: completionHandler <Closure> = (
-	addCallback: completionHandler.
+	onAddCallback: completionHandler.
 	add: m
 )
 public deleteTestObject: m <IDBTestingModel> onComplete: completionHandler <Closure> = (
     add: m.
-    deleteCallback: completionHandler.
+    onDeleteCallback: completionHandler.
 	delete: m.
 )
-public get: completed = (
-	getCallback: completed.
-	get: basicModel uuid
-    forClass: IDBTestingModel
-)
-public getAll: completionHandler <Closure> = (
-	getAllCallback: completionHandler.
- 	getAll: IDBTestingModel
+public getKeys: c <Closure> = (
+	onGetKeysCallback: c.
+	super getKeys: IDBTestingModel
  )
-onGetKeys: e <Alien[Event]> = (
-	getKeysCallback value: e
+public getKeys = (
+	getKeys: IDBTestingModel onComplete: [ :keys <List[String]> | nil ].
+ )
+onGet: o <IDBObject> = (
+    onGetCallback value: o
 )
-onGetAll: e <Alien[Event]>  = (
-    getAllCallback value: e
+onDelete: uuid <String> = (
+	(* NB: This uuid will be undefined on succcess *)
+    onDeleteCallback value: uuid
 )
-onGet: e <Alien[Event]> = (
-    getCallback value: e
+onGetAll: list <List[IDBObject]>  = (
+    onGetAllCallback value: list
 )
-onDelete: e <Alien[Event]> = (
-    deleteCallback value: e
+onGetKeys: list <List[String]> = (
+	getKeysCallback value: list
 )
-onAdd: e <Alien[Event]> = (
-    addCallback value: e
+onPut: uuid <String> = (
+   onPutCallback value: uuid
+)
+onAdd: uuid <String> = (
+    onAddCallback value: uuid
 )
 public putTestObject: m onComplete: completionHandler <Closure> = (
 	addTestObject: m.
     m slot2: 'changed value'.
-    putCallback: completionHandler.
+    onPutCallback: completionHandler.
 	put: m
+)
+public get: completed <[:Alien[Event]]> = (
+	| m |
+	onGetCallback: completed.
+    m:  modelBasic.
+	addTestObject: m.
+	get: m uuid
+    forClass: IDBTestingModel.
+)
+public getAll: completionHandler <Closure> = (
+	| m |
+	onGetAllCallback: completionHandler.
+    
+    m: modelBasic.
+	addTestObject: m.
+ 	super getAll: IDBTestingModel.
+
+	m: modelComplex.
+	addTestObject: m.
+ 	super getAll: IDBTestingModel.
+    
+    m: modelList.
+	addTestObject: m.
+ 	super getAll: IDBTestingModel.
 )
 ) : (
 )
@@ -151,25 +162,8 @@ public testGetKeys = (
     	assert: [ keys size > 0 ] message: 'Get keys returned 0 keys'.
 	]
 )
-public testGet = (
-	(*subject startUp: [ :e |*)
-    	subject get: [ :r |
-        	assert: [ r isKindOfIDBObject ] message: 'Get failed'.
-            assert: [ r slot1 = subject basicModel slot1 ] message: 'Get failed slot1: ', r slot1 printString, ' does not equal ', subject basicModel slot1 printString.
-        nil ].
-	(*nil ]*)
-)
 eventResult: e = (
 	^(e at: 'target') at: 'result'
-)
-public testGetAll = (
-	subject getAll: [  :e <Alien[Event]> |
-		| array <Array[IDBObject]> |
-        array:: eventResult: e.
-        pause.
-		assert: [ array size > 0 ] message: '0 results returned'.
-		assert: [ array first isKindOfIDBObject ] message: 'Not an IDBObject'.
- ]
 )
 public testAdd = (
     	subject addTestObject: modelBasic onComplete: [ :e <Alien[Event]> |
@@ -195,6 +189,20 @@ public testPut = (
             deny: [ uuid isNil].
             nil
 	]
+)
+public testGet = (
+	subject addTestObject: modelBasic.
+	subject get: [ :r |
+        	assert: [ r isKindOfIDBObject ] message: 'Get failed'.
+            assert: [ r slot1 = subject basicModel slot1 ] message: 'Get failed slot1: ', r slot1 printString, ' does not equal ', subject basicModel slot1 printString.
+        nil ].
+	(*nil ]*)
+)
+public testGetAll = (
+	subject getAll: [ :array <Array[IDBObject]> |
+		assert: [ array size > 0 ] message: '0 results returned'.
+		assert: [ array first isKindOfIDBObject ] message: 'Not an IDBObject'.
+ ]
 )
 ) : (
 TEST_CONTEXT = ()
@@ -268,6 +276,21 @@ public testSerializeDeserializeArray = (
     assert: [ x1 slotA = x2 slotA ] message:  'Array failed Item 2 slotA: ', x1 slotA printString, ' is not equal to ', x2 slotA printString.
     assert: [ x1 slotB = x2 slotB ] message: 'Array failed Item 2 slotB: ', x1 slotB printString, ' is not equal to ', x2 slotB printString.
 )
+public testSerializeDeserialize = (
+	|
+    serializer <Serializer> = Serializer new.  (* withAdditionalSharedObjects: { IDBTestingModel. IDBTestingChildModel. }.*)
+    deserializer <Deserializer> = Deserializer new.
+    m <IDBTestingModel> = IDBTestingModel new slot1: 'fizz'; slot2: 'buzz'; yourself.
+	b <ByteArray>
+    o <IDBTestingModel>
+    |
+	'Testing DS Closures...' out.
+    (* victoryFuel useAdditionalObjects: { IDBTestingModel. IDBTestingChildModel. }. *)
+	b:: serializer serialize: m.
+    o:: deserializer deserialize: b.
+    assert: [ o slot1 = m slot1 ] message: 'Serialize/Deserialize Closures failed slot1'.
+    assert: [ o slot2 = m slot2 ] message: 'Serialize/Deserialize Closures failed slot2'.
+)
 public testSerializeDeserializeList = (
 	|
     serializer <Serializer> = Serializer withAdditionalSharedObjects: { IDBTestingModel. IDBTestingChildModel. }.
@@ -286,7 +309,6 @@ public testSerializeDeserializeList = (
     c2p
     |
 	'Testing DS List...' out.
-	subject startUp.
     b:: serializer serialize: m1.
 	m2:: deserializer deserialize: b.
 	assert: [ m2 slot1 = m1 slot1 ] message: 'List Serialize/Deserialize failed slot1'.
@@ -297,21 +319,6 @@ public testSerializeDeserializeList = (
 
 	assert: [ c2 slotA = c2p slotA ] message: 'List Serialize/Deserialize failed Item 2 slotA'.
 	assert: [ c2 slotB = c2p slotB ] message: 'List Serialize/Deserialize failed Item 2 slotB'.
-)
-public testSerializeDeserialize = (
-	|
-    serializer <Serializer> = Serializer new.  (* withAdditionalSharedObjects: { IDBTestingModel. IDBTestingChildModel. }.*)
-    deserializer <Deserializer> = Deserializer new.
-    m <IDBTestingModel> = IDBTestingModel new slot1: 'fizz'; slot2: 'buzz'; yourself.
-	b <ByteArray>
-    o <IDBTestingModel>
-    |
-	'Testing DS Closures...' out.
-    (* victoryFuel useAdditionalObjects: { IDBTestingModel. IDBTestingChildModel. }. *)
-	b:: serializer serialize: m.
-    o:: deserializer deserialize: b.
-    assert: [ o slot1 = m slot1 ] message: 'Serialize/Deserialize Closures failed slot1'.
-    assert: [ o slot2 = m slot2 ] message: 'Serialize/Deserialize Closures failed slot2'.
 )
 ) : (
 TEST_CONTEXT = (
