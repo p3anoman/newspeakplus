@@ -276,7 +276,6 @@ get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandle
     	req:: store get: uuid.
     	req addEventListener: 'success' handler: [ :e <Alien[Event]> |
             | blob <Alien[Blob]> |
-            (* pause. *)
             blob:: (e at: 'target') at: 'result'. 
             blob arrayBuffer then: [ :buffer <Alien[ArrayBuffer]> |
             	onGet: (deserialize: buffer).
