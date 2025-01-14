@@ -75,12 +75,6 @@ onPut: e <Alien[Event]> = (
 	'onPut triggered' out.
     putCallback value: e
 )
-public putTestObject: m onComplete: completionHandler <Closure> = (
-	add: m.
-    m slot2: 'changed value'.
-    putCallback: completionHandler
-	put: m
-)
 public addTestObject: m onComplete: completionHandler <Closure> = (
 	addCallback: completionHandler.
 	add: m
@@ -113,6 +107,12 @@ onDelete: e <Alien[Event]> = (
 )
 onAdd: e <Alien[Event]> = (
     addCallback value: e
+)
+public putTestObject: m onComplete: completionHandler <Closure> = (
+	addTestObject: m.
+    m slot2: 'changed value'.
+    putCallback: completionHandler.
+	put: m
 )
 ) : (
 )
@@ -162,8 +162,17 @@ public testGet = (
 eventResult: e = (
 	^(e at: 'target') at: 'result'
 )
+public testGetAll = (
+	subject getAll: [  :e <Alien[Event]> |
+		| array <Array[IDBObject]> |
+        array:: eventResult: e.
+        pause.
+		assert: [ array size > 0 ] message: '0 results returned'.
+		assert: [ array first isKindOfIDBObject ] message: 'Not an IDBObject'.
+ ]
+)
 public testAdd = (
-    	subject addTestObject: m onComplete: [ :e <Alien[Event]> |
+    	subject addTestObject: modelBasic onComplete: [ :e <Alien[Event]> |
         	| uuid <String> |
             uuid:: eventResult: e.
         	deny: [ uuid isNil ].
@@ -175,27 +184,17 @@ public testDelete = (
 	subject deleteTestObject: modelBasic onComplete: [ :e <Alien[Event]> |
         	| uuid <String> |
             uuid:: eventResult: e.
-            deny: [ uuid isNil ].
+            deny: [ uuid notNil ].
             nil
             ]
 )
 public testPut = (
-	'Testing put...' out.
 	subject putTestObject: modelBasic onComplete: [ :e <Alien[Event]> |
         	| uuid <String> |
             uuid:: eventResult: e.
             deny: [ uuid isNil].
             nil
 	]
-)
-public testGetAll = (
-	subject getAll: [  :e <Alien[Event]> |
-		| array <Array[IDBObject]> |
-        array:: eventResult: e.
-        pause.
-		assert: [ array size > 0 ] message: '0 results returned'.
-		assert: [ array first isKindOfIDBObject ] message: 'Not an IDBObject'.
- ]
 )
 ) : (
 TEST_CONTEXT = ()

@@ -76,27 +76,6 @@ serialize: anObject <IDBObject>^<Alien[Object]> = (
     |
 	^blob
 )
-add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
-	|
-    storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-    req <Alien[IDBRequest]>
-    |
-    (* Create the IDBTransaction *)
-	tx:: db
-    		transaction: storeName
-            for: 'readwrite'.
-
-    (* Get the IDBObjectStore from the transaction *)
-    store:: tx objectStore: storeName.
-
-    (* Store the model object *)
-	req:: store add: (serialize: o) key: o uuid.
-    req addEventListener: 'success' handler: [ :e | self onAdd: e. nil ].
-    tx addEventListener: 'complete' handler: completeHandler.
-    tx addEventListener: 'error' handler: errorHandler.
-)
 deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
 		|
         deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: modelClasses. 
@@ -220,20 +199,6 @@ getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]
 onGet: o <IDBObject> = (
 	'onGet triggered' out. 
 )
-put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
-	|
-    storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-    req <Alien[IDBRequest]>
-    |
-	tx:: db transaction: storeName for: 'readwrite'.
-    store:: tx objectStore: storeName.
-    req:: store put: (serialize: o) key: o uuid.
-    req addEventListener: 'success' handler: [ :e <Alien[Event]> | self onPut: e. nil ]
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
-)
 blobFromBytes: bytes = (
 	|
     ui8 <Alien[Uint8Array]> = JSUint8Array new: bytes size.
@@ -244,19 +209,6 @@ blobFromBytes: bytes = (
     blobParts at: 0 put: ui8.
     options at: 'type' put: 'application/octet-stream'.
 	^JSBlob new: blobParts with: options.
-)
-delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
-	|
-	storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-    |
-	tx:: db transaction: storeName for: 'readwrite'.
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
-    store:: tx objectStore: storeName.
-    store delete: o uuid.
-    onDelete: o
 )
 onDelete: o <IDBObject> = (
 	'onDelete triggered' out.
@@ -285,6 +237,55 @@ onUpgradeNeeded: event <Alien[Event]> = (
     db::  (event at: #target) at: #result.
 	db createObjectStore: modelClasses first name.
     'upgradeneeded triggered' out.
+)
+put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
+	|
+    storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    |
+	tx:: db transaction: storeName for: 'readwrite'.
+    store:: tx objectStore: storeName.
+    req:: store put: (serialize: o) key: o uuid.
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> | onPut: e. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
+)
+add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
+	|
+    storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    |
+    (* Create the IDBTransaction *)
+	tx:: db
+    		transaction: storeName
+            for: 'readwrite'.
+
+    (* Get the IDBObjectStore from the transaction *)
+    store:: tx objectStore: storeName.
+
+    (* Store the model object *)
+	req:: store add: (serialize: o) key: o uuid.
+    req addEventListener: 'success' handler: [ :e | onAdd: e. nil ].
+    tx addEventListener: 'complete' handler: completeHandler.
+    tx addEventListener: 'error' handler: errorHandler.
+)
+delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
+	|
+	storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    |
+	tx:: db transaction: storeName for: 'readwrite'.
+    store:: tx objectStore: storeName.
+    req:: store delete: o uuid.
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> |  onDelete: e. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
 )
 ) : (
 )
