@@ -3,9 +3,6 @@ Newspeak3
 public class IndexedDBTesting usingPlatform: p <Platform>
 										minitest: minitest <Minitest>
                                         indexedDB: idb <IndexedDB>
-(* :exemplar: IndexedDBTesting usingPlatform: platform
-										minitest: (Minitest usingPlatform: platform)
-                                        indexedDB: (IndexedDB usingPlatform: platform) *)
 = (
 	|
     private List = p collections List.
@@ -40,7 +37,14 @@ public class IDBTestingSubject onModel: m <Object>
     onGetAllCallback
     onGetKeysCallback
     
-    public basicModel = modelBasic. 
+    public basicModel = IDBTestingModel new slot1: 'foo'; slot2: 'bar'; yourself.
+    public childModel1 = IDBTestingChildModel new slotA: 'foo1'; slotB: 'bar1'; yourself.
+    public childModel2 = IDBTestingChildModel new slotA: 'foo2'; slotB: 'bar2'; yourself.
+    public complexModel = IDBTestingModel new slot1: 'complex'; slot2: modelChild1; yourself.
+    public listModel = IDBTestingModel new slot1: 'list'; slot2: (List new 
+    																										add: childModel1;
+                                                                                                            add: childModel2;
+                                                                                                            yourself); yourself.
     |
     startUp: [ :e | nil ].
 
@@ -109,21 +113,24 @@ public get: completed <[:Alien[Event]]> = (
 	get: m uuid
     forClass: IDBTestingModel.
 )
-public getAll: completionHandler <Closure> = (
+public getAllList:arg = (
+    onGetAllCallback: arg.
+	addTestObject: listModel.
+ 	super getAll: IDBTestingModel.
+	deleteTestObject: listModel.
+ )
+public getAllComplex: completionHandler <[:List[IDBModel]]> = (
+    onGetAllCallback: completionHandler.
+	addTestObject: complexModel.
+ 	super getAll: IDBTestingModel.
+    deleteTestObject: complexModel.
+)
+public getAll: completionHandler <[:List[IDBModel]]> = (
 	| m |
 	onGetAllCallback: completionHandler.
-    
-    m: modelBasic.
-	addTestObject: m.
+	addTestObject: basicModel.
  	super getAll: IDBTestingModel.
-
-	m: modelComplex.
-	addTestObject: m.
- 	super getAll: IDBTestingModel.
-    
-    m: modelList.
-	addTestObject: m.
- 	super getAll: IDBTestingModel.
+    deleteTestObject: basicModel.
 )
 ) : (
 )
@@ -199,10 +206,33 @@ public testGet = (
 	(*nil ]*)
 )
 public testGetAll = (
-	subject getAll: [ :array <Array[IDBObject]> |
-		assert: [ array size > 0 ] message: '0 results returned'.
-		assert: [ array first isKindOfIDBObject ] message: 'Not an IDBObject'.
- ]
+	subject getAll: [ :list <List[IDBObject]> |
+			assert: [ array size > 0 ] message: '0 results returned'.
+			assert: [ array first isKindOfIDBObject ] message: 'Not an IDBObject' ]
+)
+public testGetAllList = (
+	subject getAllList: [ :list <List[IDBObject]> |
+    	| m m2 sublist1 sublist2 listModel <IDBTestingModel> = subject listModel. | 
+			assert: [ list size > 0 ] message: '0 results returned'.
+            m: list first.
+			assert: [ m isKindOfIDBObject ] message: 'Not an IDBObject'.
+			assert: [ listModel slot1 = m slot1 ] message: 'getAll failed List slotA'.
+            sublist1: listModel slot2. sublist2: m slot2. 
+            assert: [ sublist2 size > 0 ] message: 'getAll failed List. List is empty'.
+            assert: [ sublist1 size = sublist2 size ] message: 'getAll listModel failed list sizes not eaqual'.
+            m: sublist1 first. m2: sublist2 first.
+			assert: [ m slotB = m2 slotB ] message: 'getAll List failed. child slotB'.
+			assert: [ m slotA = m2 slotA ] message: 'getAll List failed. child slotA'.]
+)
+public testGetAllComplex = (
+	subject getAllComplex: [ :list <List[IDBObject]> |
+    	| m complexModel <IDBTestingModel> = subject complexModel. | 
+			assert: [ list size > 0 ] message: '0 results returned'.
+            m: list first.
+			assert: [ m isKindOfIDBObject ] message: 'Not an IDBObject'.
+			assert: [ complexModel slot1 = m slot1 ] message: 'getAll failed c1 slotA'.
+			assert: [ complexModel slot2 slotA = m slot2 slotA ] message: 'getAll failed c2 slotA'.
+			assert: [ complexModel slot2 slotB = m slot2 slotB ] message: 'getAll failed c2 slotB' ]
 )
 ) : (
 TEST_CONTEXT = ()
