@@ -14,7 +14,7 @@ public class IndexedDB usingPlatform: p = (
 	private Subject <Subject> = p hopscotch Subject.
 	private Serializer <Serializer> = p victoryFuel Serializer.
 	private Deserializer <Deserializer> = p victoryFuel Deserializer.
-    private ByteArray <ByteArray> = p victoryFuel ByteArray.
+   (*  private ByteArray <ByteArray> = p victoryFuel ByteArray. *)
 
 	private JSObject <Alien[Object]> = p js global at: 'Object'.
     private JSMap <Alien[Map]> = p js global at: 'Map'.
@@ -23,6 +23,8 @@ public class IndexedDB usingPlatform: p = (
     private JSBlob <Alien[Blob]> = p js global at: 'Blob'.
     private JSPromise <Alien[Promise]> = p js global at: 'Promise'.
     private crypto <Alien[Crypto]> = p js global at: 'crypto'.
+    
+    private Alien = p js Alien.
 
 	(* The browser's IndexedDB API object *)
     private indexedDB <Alien[IndexedDB]> = p js global at: 'indexedDB'.
@@ -253,15 +255,27 @@ private blobFromBytes: bytes = (
     options at: 'type' put: 'application/octet-stream'.
 	^JSBlob new: blobParts with: options.
 )
-private deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
-		|
-        deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: modelClasses.
-        ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.
-        n <Integer> = ui8 at: 'length'.
-        bytes <ByteArray> = ByteArray new: n.
-        |
-        1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
-        ^deserializer deserialize: bytes.
+add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
+	|
+    storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
+    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+    req <Alien[IDBRequest]> = store add: (serialize: o) key: o uuid.
+    |
+    req addEventListener: 'success' handler: [ :e | onAdd: e. nil ].
+    tx addEventListener: 'complete' handler: completeHandler.
+    tx addEventListener: 'error' handler: errorHandler.
+)
+put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
+	|
+    storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
+    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+    req <Alien[IDBRequest]> = store put: (serialize: o) key: o uuid.
+    |
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> | onPut: e. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
 )
 getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject]]> onError: errorHandler <[:Error]> = (
 		|
@@ -284,7 +298,7 @@ getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject
                     1 to: n do: [ :i <Integer> | (results at: i) reconstituteAliens: ((objs at: (i - 1)) at: 'aliens') ].
                   	onGetAll: results.
                   	nil ]
-				onError: [ :ex <Error> | ex signal: ('Failed to load data: ', ex printString). nil ]. 				(* reject *)
+				onError: [ :ex <Error> | ex signal: ('Failed to load data: ', ex messageText). nil ]. 				(* reject *)
 			nil.
 		].
    		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
@@ -292,34 +306,22 @@ getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject
 )
 private serialize: o <IDBObject>^<Alien[Object]> = (
 	|
-    serializer <Serializer> = Serializer withAdditionalSharedObjects: modelClasses.
+    serializer <Serializer> = Serializer withAdditionalSharedObjects: (modelClasses add: Alien; yourself).
     result <Alien[Object]> = JSObject new.
     |
     result at: 'psoup' put: (blobFromBytes: (serializer serialize: o)).
 	result at: 'aliens' put: o serializeAliens.
     ^result
 )
-add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
-	|
-    storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
-    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-    req <Alien[IDBRequest]> = store add: (serialize: o) key: o uuid.
-    |
-    req addEventListener: 'success' handler: [ :e | onAdd: e. nil ].
-    tx addEventListener: 'complete' handler: completeHandler.
-    tx addEventListener: 'error' handler: errorHandler.
-)
-put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
-	|
-    storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
-    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-    req <Alien[IDBRequest]> = store put: (serialize: o) key: o uuid.
-    |
-    req addEventListener: 'success' handler: [ :e <Alien[Event]> | onPut: e. nil ].
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
+private deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
+		|
+        deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: (modelClasses add: Alien; yourself).
+        ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.
+        n <Integer> = ui8 at: 'length'.
+        bytes <ByteArray> = ByteArray new: n.
+        |
+        1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
+        ^deserializer deserialize: bytes.
 )
 ) : (
 )
