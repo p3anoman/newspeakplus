@@ -109,10 +109,11 @@ public class IDBSubject onModel: m <Object>
 	|
  	(* The connection to the application's database *)
  	public db <Alien[IDBDatabase]>
- 	public modelClasses <Array> = mc.
+ 	public modelClasses <List> = mc.
     public databaseName = n.
     public databaseVersion = v.
 	|
+    modelClasses includes: Alien ifFalse: [ modelClasses add: Alien ].
 ) (
 put: o <IDBObject> = (
 	put: o onComplete: [ :e | ] onError: [ :e | ]
@@ -306,7 +307,7 @@ getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject
 )
 private serialize: o <IDBObject>^<Alien[Object]> = (
 	|
-    serializer <Serializer> = Serializer withAdditionalSharedObjects: (modelClasses add: Alien; yourself).
+    serializer <Serializer> = Serializer withAdditionalSharedObjects: modelClasses.
     result <Alien[Object]> = JSObject new.
     |
     result at: 'psoup' put: (blobFromBytes: (serializer serialize: o)).
@@ -315,7 +316,7 @@ private serialize: o <IDBObject>^<Alien[Object]> = (
 )
 private deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
 		|
-        deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: (modelClasses add: Alien; yourself).
+        deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: modelClasses.
         ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.
         n <Integer> = ui8 at: 'length'.
         bytes <ByteArray> = ByteArray new: n.
