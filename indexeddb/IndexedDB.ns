@@ -36,28 +36,6 @@ public class IDBObject new = (
 public isKindOfIDBObject = (
 	^true
 )
-public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[Array]]]> = (
-    |
-    om <ObjectMirror> = ObjectMirror reflecting: self.
-    keys <Alien[Iterator]> = map keys.
-    key <String>
-    val <Alien[JSArray|JSMap|JSObject]>
-    kit <Alien[Iteration]>
-    |
-    [ (kit:: keys next) at: 'done' ] whileFalse: [
-    	key:: kit at: 'value'.
-        val:: map get: key.
-        (val instanceOf: JSArray)
-        	ifTrue: [
-            	| n <Integer> = val at: 'length'. list <List[IDBObject]> = (om getSlot: k) reflectee. |
-            	1 to: n do: [ :i <Integer> | (list at: i) reconstituteAliens: (val at: (i - 1)) ]]
-            ifFalse: [ (val instanceOf: JSMap)
-            	ifTrue: [ (om getSlot: key) reflectee reconstituteAliens: val ]
-                ifFalse: [ om setSlot: key to: val ]
-			].
-		nil
-	]
-)
 public serializeAliens ^<Map[String[Alien]]> = (
 	|
     om = ObjectMirror reflecting: self.
@@ -75,9 +53,31 @@ public serializeAliens ^<Map[String[Alien]]> = (
                     ifFalse: [
                     	v isKindOfList ifTrue: [
                             | array = JSArray new. |
-                            v do: [ :item | item isKindOfIDBObject ifTrue: [ array push: item serializeAliens ] ]
+                            v do: [ :item | item isKindOfIDBObject ifTrue: [ array push: item serializeAliens ] ].
 							map set: slot name to: array ] ] ] ].
 	^map
+)
+public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[Array]]]> = (
+    |
+    om <ObjectMirror> = ObjectMirror reflecting: self.
+    keys <Alien[Iterator]> = map keys.
+    key <String>
+    val <Alien[JSArray|JSMap|JSObject]>
+    kit <Alien[Iteration]>
+    |
+    [ (kit:: keys next) at: 'done' ] whileFalse: [
+    	key:: kit at: 'value'.
+        val:: map get: key.
+        (val instanceOf: JSArray)
+        	ifTrue: [
+            	| n <Integer> = val at: 'length'. list <List[IDBObject]> = (om getSlot: key) reflectee. |
+            	1 to: n do: [ :i <Integer> | (list at: i) reconstituteAliens: (val at: (i - 1)) ]]
+            ifFalse: [ (val instanceOf: JSMap)
+            	ifTrue: [ (om getSlot: key) reflectee reconstituteAliens: val ]
+                ifFalse: [ om setSlot: key to: val ]
+			].
+		nil
+	]
 )
 ) : (
 )
@@ -113,7 +113,7 @@ public class IDBSubject onModel: m <Object>
     public databaseName = n.
     public databaseVersion = v.
 	|
-    modelClasses includes: Alien ifFalse: [ modelClasses add: Alien ].
+    (modelClasses includes: Alien) ifFalse: [ modelClasses add: Alien ].
 ) (
 put: o <IDBObject> = (
 	put: o onComplete: [ :e | ] onError: [ :e | ]
@@ -193,20 +193,6 @@ onUpgradeNeeded: event <Alien[Event]> = (
 	db createObjectStore: modelClasses first name.
     'upgradeneeded triggered' out.
 )
-delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
-	|
-	storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-    req <Alien[IDBRequest]>
-    |
-	tx:: db transaction: storeName for: 'readwrite'.
-    store:: tx objectStore: storeName.
-    req:: store delete: o uuid.
-    req addEventListener: 'success' handler: [ :e <Alien[Event]> |  onDelete: e. nil ].
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
-)
 get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
 		|
         storeName = (ClassMirror reflecting: class) mixin name.
@@ -256,17 +242,6 @@ private blobFromBytes: bytes = (
     options at: 'type' put: 'application/octet-stream'.
 	^JSBlob new: blobParts with: options.
 )
-add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
-	|
-    storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
-    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-    req <Alien[IDBRequest]> = store add: (serialize: o) key: o uuid.
-    |
-    req addEventListener: 'success' handler: [ :e | onAdd: e. nil ].
-    tx addEventListener: 'complete' handler: completeHandler.
-    tx addEventListener: 'error' handler: errorHandler.
-)
 put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
 	|
     storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
@@ -305,7 +280,37 @@ getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject
    		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
-private serialize: o <IDBObject>^<Alien[Object]> = (
+add: o <IDBObject> onComplete: completeHandler <Closure> onError: errorHandler <Closure> = (
+	|
+    storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
+    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+    req <Alien[IDBRequest]> = store add: (serialize: o) key: o uuid.
+    |
+    req addEventListener: 'success' handler: [ :e |
+    	| uuid  = (e at: 'target') at: 'result'. |
+    	onAdd: uuid.
+        nil ].
+    tx addEventListener: 'complete' handler: completeHandler.
+    tx addEventListener: 'error' handler: errorHandler.
+)
+delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
+	|
+	storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    |
+	tx:: db transaction: storeName for: 'readwrite'.
+    store:: tx objectStore: storeName.
+    req:: store delete: o uuid.
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+    	| uuid  = (e at: 'target') at: 'result'. |
+    	onDelete: uuid. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
+)
+serialize: o <IDBObject>^<Alien[Object]> = (
 	|
     serializer <Serializer> = Serializer withAdditionalSharedObjects: modelClasses.
     result <Alien[Object]> = JSObject new.
@@ -314,7 +319,7 @@ private serialize: o <IDBObject>^<Alien[Object]> = (
 	result at: 'aliens' put: o serializeAliens.
     ^result
 )
-private deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
+deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
 		|
         deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: modelClasses.
         ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.

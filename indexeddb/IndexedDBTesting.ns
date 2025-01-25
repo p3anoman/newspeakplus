@@ -23,14 +23,16 @@ public class IndexedDBTesting usingPlatform: p <Platform>
     private JSBlob = p js global at: 'Blob'.
     private JSDate = p js global at: 'Date'.
     public Alien = p js Alien.
-
-    public testDate = JSDate new.
+    
+    testDate = JSDate new.
 	|
-    'IndexedDBTesting factory called' out.
 ) (
 public class IDBTestingSubject onModel: m <Object>
 = IDBSubject onModel: m
-						modelClasses: { IDBTestingModel. IDBTestingChildModel. }
+						modelClasses: (List new
+                        								add: IDBTestingModel;
+                                                        add: IDBTestingChildModel;
+                                                        yourself)
                         databaseName: 'TestingDB'
                         databaseVersion: 1 (
 	| 
@@ -66,10 +68,6 @@ public startUp: successHandler = (
         nil ]
         onFailure: [ :e | ].
 )
-public addTestObject: m onComplete: completionHandler <Closure> = (
-	onAddCallback: completionHandler.
-	add: m
-)
 onGet: o <IDBObject> = (
     onGetCallback value: o
 )
@@ -88,10 +86,6 @@ onPut: uuid <String> = (
 )
 onAdd: uuid <String> = (
     onAddCallback value: uuid
-)
-public deleteTestObject: m <IDBTestingModel> onComplete: completionHandler <Closure> = (
-    onDeleteCallback: completionHandler.
-	delete: m.
 )
 public putTestObject: m onComplete: completionHandler <Closure> = (
     onPutCallback: completionHandler.
@@ -113,6 +107,28 @@ public getKeysTest: c <Closure> = (
 	onGetKeysCallback: c.
 	super getKeys: IDBTestingModel
  )
+public addTestObject: m onComplete: completionHandler <Closure> = (
+	onAddCallback: completionHandler.
+    startUp: [ :e | add: m. nil ]
+)
+public deleteTestObject: m <IDBTestingModel> onComplete: completionHandler <Closure> = (
+    onDeleteCallback: completionHandler.
+	startUp: [ :e | delete: m ].
+)
+public serializeTest: o = (
+	^serialize: o
+)
+public serializeDeserializeTest: blob <Alien[Blob]> onResolved: handler = (
+	| p = blob arrayBuffer. |
+    p then: [ :buf |  handler value: (deserialize: buf) ].
+)
+public addTestObjects: list <List[IDBObject]> onComplete: completionHandler <[]> = (
+	onAddCallback: [:e | nil ].
+    startUp: [ :e |
+    	list do: [ :item | add: item ].
+   		completionHandler value
+	nil ].
+)
 ) : (
 )
 public class IDBTestingModel = IDBObject (
@@ -155,28 +171,6 @@ public testGet = (
         nil ].
 	(*nil ]*)
 )
-public testSerializeAliens = (
-	| o m a dt = JSDate new. |
-    o:: IDBTestingModel new slot1: dt; yourself.
-    m:: o serializeAliens.
-    assert: [ m isKindOfJSAlien ] message: 'Not an Alien'.
-    assert: [ (m at: 'size') = 1 ] message: 'Wrong size'.
-    assert: [ (m get: 'slot1') printString = dt printString ] message: 'Wrong date'.
-    o slot2: (IDBTestingChildModel new slotA: dt; yourself).
-    m:: o serializeAliens.
-    assert: [ (m at: 'size') = 2 ] message: 'Wrong size'.
-    a:: m get: 'slot2'. 
-    assert: [ (a at: 'size') = 1] message: 'Complex map size: ', (a at: 'size') printString.
-    assert: [ (a get: 'slotA') printString = dt printString ] message: 'Complex date is wrong'
-)
-public testDelete = (
-	| m = modelBasic. |
-    subject addTestObject: m.
-	subject deleteTestObject: m onComplete: [ :uuid <String> |
-            deny: [ uuid isNil ].
-            nil
-            ]
-)
 public testGetAllComplex = (
 	| items <List> = List new
     					add: modelComplex;
@@ -215,20 +209,6 @@ public testGetAllList = (
 			assert: [ m slotB = m2 slotB ] message: 'getAll List failed. child slotB'.
 			assert: [ m slotA = m2 slotA ] message: 'getAll List failed. child slotA'.]
 )
-public testGetAll = (
-	| items <List> = List new
-    					add: modelBasic;
-                        add: modelBasic;
-                        add: modelBasic;
-                        yourself. |
-    items do: [ :item | subject addTestObject: item ].
-	subject getAll: [ :list <List[IDBObject]> |
-			assert: [ list size > 0 ] message: '0 results returned'.
-			assert: [ list size = items size ] message: '0 results returned'.
-			assert: [ list first isKindOfIDBObject ] message: 'Not an IDBObject'.
-            items do: [ :toBeDeleted <IDBObject> |
-            	subject deleteTestObject: toBeDeleted ] ]
-)
 public testPut = (
 	| m = modelBasic. |
     subject addTestObject: m.
@@ -244,20 +224,78 @@ public testPut = (
 public cleanUp = (
 	(* indexedDB deleteDatabase: 'List' *)
 )
+public testDelete = (
+	| m = modelBasic. |
+    subject addTestObject: m onComplete: [ :uuida | 
+    subject deleteTestObject: m onComplete: [ :uuid <String> |
+            assert: [ uuid isUndefined ] message: 'Object not deleted: ', uuid printString.
+            nil
+            ].
+		nil]
+)
 public testAdd = (
-    subject addTestObject: modelBasic onComplete: [ :e <Alien[Event]> |
-    | uuid = (e at: 'target') at: 'result'. |
-    deny: [ uuid isNil ]. pause.
-    nil
+	| m = modelBasic. |
+    subject addTestObject: m onComplete: [ :uuid <String> |
+    	deny: [ uuid = '' ]. 
+    	assert: [ uuid = m uuid ] message: 'UUIDs do not agree'.
+    	nil
     ]
 )
-public testReconstituteAliens = (
-	| o m o2 dt = JSDate new. | pause.
-    o:: IDBTestingModel new slot1: dt; yourself.
-    m:: o serializeAliens.
-    o2:: IDBTestingModel new.
-    o2 reconstituteAliens: m.
-    assert: [ o2 slot1 = dt ] message: ' Wrong date'
+public testSerializeDeserializeIDB = (
+	| o o2 c l jso |
+    o:: modelBasic.
+    jso:: subject serializeTest: o.
+    subject serializeDeserializeTest: (jso at: 'psoup') onResolved: [ :r | o2:: r.
+    o2 reconstituteAliens: (jso at: 'aliens').
+    assert: [ o2 slot1 printString = testDate printString ] message: 'Slot1 alien is not correct'.
+    assert: [ o2 slot2 = 'bar' ] message: 'Slot2 is not correct'.
+	nil ].
+    
+)
+public testSerializeDeserializeIDBComplex = (
+	| o o2 c jso |
+    o:: modelComplex.
+    jso:: subject serializeTest: o.
+    subject serializeDeserializeTest: (jso at: 'psoup') onResolved: [ :o2 |
+    o2 reconstituteAliens: (jso at: 'aliens').
+    assert: [ o2 slot1 = 'complex' ] message: 'Slot1 is not correct'.
+    c:: o2 slot2.
+    assert: [ c isKindOfIDBObject ] message: 'Child object not deserialized'.
+    assert: [ c slotA = 'foo1' ] message: 'Child slotA is not correct'.
+    assert: [ c slotB printString = testDate printString ] message: 'Child slotB alien is not correct'.
+    nil ].
+)
+public testSerializeDeserializeIDBList = (
+	| o o2 c l jso |
+    o:: modelList.
+    jso:: subject serializeTest: o.
+    subject serializeDeserializeTest: (jso at: 'psoup') onResolved: [ :o2 |
+    o2 reconstituteAliens: (jso at: 'aliens').
+    assert: [ o2 slot1 = 'list' ] message: 'Slot1 is not correct'.
+    l:: o2 slot2.
+    assert: [ c size = 2 ] message: 'List object not deserialized (wrong size)'.
+    c:: l first.
+    assert: [ c slotA = 'foo1' ] message: 'List Child1 slotA is not correct'.
+    assert: [ c slotB printString = testDate printString ] message: 'Child1 slotB alien is not correct'.
+    c:: l last.
+    assert: [ c slotA printString = testDate printString ] message: 'List Child2 slotA is not correct'.
+    assert: [ c slotB = 'bar2'  ] message: 'Child2 slotB is not correct'.
+    nil ].
+)
+public testGetAll = (
+	| items <List> = List new
+    					add: modelBasic;
+                        add: modelBasic;
+                        add: modelBasic;
+                        yourself. |
+	subject addTestObjects: items onComplete: [ 
+        subject getAllTest: [ :list <List[IDBObject]> |
+                assert: [ list size > 0 ] message: '0 results returned'.
+                assert: [ list size = items size ] message: '0 results returned'.
+                assert: [ list first isKindOfIDBObject ] message: 'Not an IDBObject'.
+                items do: [ :toBeDeleted <IDBObject> |
+                    subject deleteTestObject: toBeDeleted ] ].
+	nil ]
 )
 ) : (
 TEST_CONTEXT = ()
