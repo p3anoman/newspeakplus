@@ -193,28 +193,6 @@ onUpgradeNeeded: event <Alien[Event]> = (
 	db createObjectStore: modelClasses first name.
     'upgradeneeded triggered' out.
 )
-get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
-		|
-        storeName = (ClassMirror reflecting: class) mixin name.
-        tx <Alien[IDBTransaction]>
-        store <Alien[IDBObjectStore]>
-        req <Alien[IDBRequeste]>
-        |
-    	tx:: db transaction: storeName for: 'readonly'.
-    	store:: tx objectStore: storeName.
-    	req:: store get: uuid.
-    	req addEventListener: 'success' handler: [ :e <Alien[Event]> |
-            | blob <Alien[Blob]> |
-            blob:: (e at: 'target') at: 'result'. 
-            blob arrayBuffer then: [ :buffer <Alien[ArrayBuffer]> |
-            	onGet: (deserialize: buffer).
-            	nil
-            ] onError: [ :ex | failureHandler value:  'Error loading data: ', ex printString. nil].
-            nil 
-		].
-   		tx addEventListener: 'complete' handler: [ :e <Event> | completionHandler value: e. nil ].
-   		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
-)
 public openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> = (
 	openDB: version onSuccess: successHandler onFailure: [ :ex | nil ]
 )
@@ -328,6 +306,26 @@ deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
         |
         1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
         ^deserializer deserialize: bytes.
+)
+get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
+		|
+        storeName = (ClassMirror reflecting: class) mixin name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBRequeste]> = store get: uuid.
+        |
+    	req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+            | jso <Alien[Blob]> = (e at: 'target') at: 'result'. | 
+            (jso at: 'psoup') arrayBuffer then: [ :buffer <Alien[ArrayBuffer]> |
+            	| o <IDBObject> = deserialize: buffer. |
+                o reconstituteAliens: (jso at: 'aliens').
+            	onGet: o.
+            	nil
+            ] onError: [ :ex | failureHandler value:  'Error loading data: ', ex printString. nil].
+            nil 
+		].
+   		tx addEventListener: 'complete' handler: [ :e <Event> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
 )
 ) : (
 )
