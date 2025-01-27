@@ -9,7 +9,7 @@ class IndexedDBTestingConfiguration packageTestsUsing: manifest = (
 public testModulesUsingPlatform: p  minitest: m = (
 	| idb = IndexedDB usingPlatform: p. |
 	^{ IndexedDBTesting usingPlatform: p 
-    									minitest: m 
+    									testFramework: m 
                                         indexedDB: idb
 	}
 )
