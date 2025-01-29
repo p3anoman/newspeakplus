@@ -25,6 +25,7 @@ public class IndexedDBTesting usingPlatform: p <Platform>
     public Alien = p js Alien.
     
     testDate = JSDate new.
+    basicModel = modelBasic.
 	|
 ) (
 public class IDBTestingSubject onModel: m <Object>
@@ -43,16 +44,12 @@ public class IDBTestingSubject onModel: m <Object>
     onGetAllCallback <[:List[IDBObject]]>
     onGetKeysCallback <[:List[String]]>
     
-    public basicModel <IDBTestingModel> = IDBTestingModel new slot1: 'foo'; slot2: 'bar'; yourself.
-    public childModel1 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 'foo1'; slotB: 'bar1'; yourself.
-    public childModel2 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 'foo2'; slotB: 'bar2'; yourself.
-    public complexModel <IDBTestingModel> = IDBTestingModel new slot1: 'complex'; slot2: modelChild1; yourself.
-    public listModel <IDBTestingModel> = IDBTestingModel new slot1: 'list'; slot2: (List new 
-    																										add: childModel1;
-                                                                                                            add: childModel2;
-                                                                                                            yourself); yourself.
+    public basicModel <IDBTestingModel> = modelBasic.
+    public childModel1 <IDBTestingChildModel> = modelChild1.
+    public childModel2 <IDBTestingChildModel> =modelChild2.
+    public complexModel <IDBTestingModel> = modelComplex.
+    public listModel <IDBTestingModel> = modelList.
     |
-	'IDBTestingSubject factory' out.
 ) (
 public deleteTestObject: m <IDBTestingModel> = (
     deleteTestObject: m onComplete: [ :x | nil ].
@@ -77,9 +74,6 @@ onDelete: uuid <String> = (
 )
 onGetAll: list <List[IDBObject]>  = (
     onGetAllCallback value: list
-)
-onGetKeys: list <List[String]> = (
-	getKeysCallback value: list
 )
 onPut: uuid <String> = (
    onPutCallback value: uuid
@@ -106,13 +100,6 @@ public serializeDeserializeTest: blob <Alien[Blob]> onResolved: handler = (
 	| p = blob arrayBuffer. |
     p then: [ :buf |  handler value: (deserialize: buf) ].
 )
-public addTestObjects: list <List[IDBObject]> onComplete: completionHandler <[]> = (
-	onAddCallback: [:e | nil ].
-    startUp: [ :e |
-    	list do: [ :item | add: item ].
-   		completionHandler value
-	nil ].
-)
 public getAllTest: completionHandler <[:List[IDBModel]]> = (
 	onGetAllCallback: completionHandler.
  	startUp: [ :e | getAll: IDBTestingModel ].
@@ -121,9 +108,19 @@ public getKeysTest: c <Closure> = (
 	onGetKeysCallback: c.
 	startUp: [ :e | getKeys: IDBTestingModel ]
  )
-public getTest: completed <[:Alien[Event]]> = (
+public getTest: m onComplete: completed <[:Alien[Event]]> = (
 	onGetCallback: completed.
-	startUp: [ :e | get: basicModel uuid forClass: IDBTestingModel ]
+	startUp: [ :e | get: m uuid forClass: IDBTestingModel ]
+)
+public addTestObjects: list <List[IDBObject]> onComplete: completionHandler <[]> = (
+	onAddCallback: [ :e | nil ].
+    startUp: [ :e |
+    	list do: [ :item | add: item ].
+   		completionHandler value: list.
+	nil ].
+)
+onGetKeys: list <List[String]> = (
+	onGetKeysCallback value: list
 )
 ) : (
 )
@@ -146,7 +143,6 @@ public class IDBTestingChildModel = IDBObject (
 public class IDBTests = TestContext (
 	| subject = IDBTestingSubject onModel: List new. |
     subject openDB: 1 onSuccess: [ :e | nil ].
-    'IDBTests test context' out.
 ) (
 public testGetKeys: successHandler <[:List[UUID]]>= (
 	subject getKeys: successhandler
@@ -165,14 +161,6 @@ public testDelete = (
             nil
             ].
 		nil]
-)
-public testAdd = (
-	| m = modelBasic. |
-    subject addTestObject: m onComplete: [ :uuid <String> |
-    	deny: [ uuid = '' ]. 
-    	assert: [ uuid = m uuid ] message: 'UUIDs do not agree'.
-    	nil
-    ]
 )
 public testSerializeDeserializeIDB = (
 	| o o2 c l jso |
@@ -198,28 +186,6 @@ public testSerializeDeserializeIDBComplex = (
     assert: [ c slotB printString = testDate printString ] message: 'Child slotB alien is not correct'.
     nil ].
 )
-public testGet = (
-	subject addTestObject: subject basicModel onComplete: [ :e |
-		subject getTest: [ :r |
-        	assert: [ r isKindOfIDBObject ] message: 'Get failed'.
-            assert: [ r slot1 = subject basicModel slot1 ] message: 'Get failed slot1: ', r slot1 printString, ' does not equal ', subject basicModel slot1 printString.
-        nil ].
-	nil ].
-)
-public testPut = (
-	| m = modelBasic. |
-    subject addTestObject: m onComplete: [
-        m slot1: 'changed slot1'.
-        subject putTestObject: m onComplete: [ :e <Alien[Event]> |
-                | uuid <String> |
-                uuid:: eventResult: e.
-                deny: [ uuid isNil].
-                subject deleteTestObject: m.
-                nil
-        ].
-	nil
-    ]
-)
 public testSerializeDeserializeIDBList = (
 	| o o2 c l jso |
     o:: modelList.
@@ -237,10 +203,39 @@ public testSerializeDeserializeIDBList = (
         assert: [ c slotB = 'bar2'  ] message: 'Child2 slotB is not correct'.
     	nil ].
 )
-public testGetKeys = (
-	subject getKeysTest: [ :keys <List[UUID]> |
-    	assert: [ keys size > 0 ] message: 'Get keys returned 0 keys'.
-	]
+public testAdd = (
+	| m = modelBasic. |
+    subject addTestObject: m onComplete: [ :uuid <String> |
+    	[ deny: [ uuid = '' ]. 
+    	assert: [ uuid = m uuid ] message: 'UUIDs do not agree'. 
+        ] ensure: [ subject deleteTestObject: m ].
+    	nil
+    ]
+)
+public testPut = (
+	| m = modelBasic. |
+    subject addTestObject: m onComplete: [ :u <String> |
+        m slot1: 'changed slot1'.
+        subject putTestObject: m onComplete: [ :e <Alien[Event]> |
+                | uuid <String> |
+                  [uuid:: eventResult: e.
+                  deny: [ uuid isNil]
+                ] ensure: [ 'testPut: ensure: called' out. subject deleteTestObject: m ].
+                nil
+        ].
+	nil
+    ]
+)
+public testGet = (
+	| m = modelBasic. |
+	subject addTestObject: m onComplete: [ :e |
+		[
+		subject getTest: m onComplete: [ :r |
+            assert: [ r isKindOfIDBObject ] message: 'Get failed'.
+            assert: [ r slot1 printString = m slot1 printString ] message: 'Get failed slot1: ', r slot1 printString, ' does not equal ', subject basicModel slot1 printString.
+        	nil ].
+		] ensure: [ subject deleteTestObject: m ].
+	nil ].
 )
 public testGetAll = (
 	| items <List> = List new
@@ -248,34 +243,19 @@ public testGetAll = (
                         add: modelBasic;
                         add: modelBasic;
                         yourself. |
-	subject addTestObjects: items onComplete: [ 
-        subject getAllTest: [ :list <List[IDBObject]> |
-                assert: [ list size > 0 ] message: '0 results returned'.
-                (* assert: [ list size = items size ] message: 'Wrong number results returned'. *)
-                assert: [ list first isKindOfIDBObject ] message: 'Not an IDBObject'.
-                assert: [ list first slot1 = subject basicModel slot1 ] message: 'Slot1 failed'.
-                list do: [ :toBeDeleted <IDBObject> |
+	subject addTestObjects: items onComplete: [ :addeditems |
+        [
+            subject getAllTest: [ :list <List[IDBObject]> |
+                    assert: [ list size > 0 ] message: '0 results returned'.
+                    (* assert: [ list size = items size ] message: 'Wrong number results returned'. *)
+                    assert: [ list first isKindOfIDBObject ] message: 'Not an IDBObject'.
+                    assert: [ list first slot1 printString = addeditems first slot1 printString ] message: 'Slot1 failed'.
+                    nil.
+            ] 
+		] ensure: [ 
+                addeditems do: [ :toBeDeleted <IDBObject> |
                     subject deleteTestObject: toBeDeleted ] ].
 	nil ]
-)
-public testGetAllComplex = (
-	| items <List> = List new
-    					add: modelComplex;
-                        add: modelComplex;
-                        add: modelComplex;
-                        yourself. |
-    items do: [ :item | subject addTestObject: item ].
-	subject getAllTest: [ :list <List[IDBObject]> |
-    	| m complex <IDBTestingModel> | 
-			assert: [ list size > 0 ] message: '0 results returned'.
-			(* assert: [ list size = items size ] message: '# of results returned: ', list size printString, ' does not equal 3'. *)
-            m: list first. complex: items first.
-			assert: [ m isKindOfIDBObject ] message: 'Not an IDBObject'.
-			assert: [ complex slot2 slotA = m slot2 slotA ] message: 'getAll failed c2 slotA'.
-			assert: [ complex slot2 slotB = m slot2 slotB ] message: 'getAll failed c2 slotB (alien date)'.
-                list do: [ :toBeDeleted <IDBObject> |
-                    subject deleteTestObject: toBeDeleted ] .
-            nil ]
 )
 public testGetAllList = (
 	| items <List> = List new
@@ -283,141 +263,67 @@ public testGetAllList = (
                         add: modelList;
                         add: modelList;
                         yourself. |
-    items do: [ :item | subject addTestObject: item ].
-	subject getAllTest: [ :list <List[IDBObject]> |
-    	| m m2 sublist1 sublist2 listModel <IDBTestingModel> = subject listModel. | 
-			assert: [ list size > 0 ] message: '0 results returned'.
-            m: list first. m2: items first.
-			assert: [ m isKindOfIDBObject ] message: 'Not an IDBObject'.
-			assert: [ m2 slot1 = m slot1 ] message: 'getAll failed List slotA'.
-            sublist1: m slot2. sublist2: m2 slot2. 
-            assert: [ sublist1 size > 0 ] message: 'getAll failed List. List is empty'.
-            assert: [ sublist1 size = sublist2 size ] message: 'getAll listModel failed list sizes not eaqual'.
-            m: sublist1 first. m2: sublist2 first.
-			assert: [ m slotB = m2 slotB ] message: 'getAll List failed. child slotB'.
-			assert: [ m slotA = m2 slotA ] message: 'getAll List failed. child slotA'.
-                list do: [ :toBeDeleted <IDBObject> |
-                    subject deleteTestObject: toBeDeleted ].
-			nil
+    subject addTestObjects: items onComplete: [ :addeditems |
+		[	
+            subject getAllTest: [ :list <List[IDBObject]> |
+                | m m2 sublist1 sublist2 listModel <IDBTestingModel> = subject listModel. | 
+                    assert: [ list size > 0 ] message: '0 results returned'.
+                    m: list first. m2: items first.
+                    assert: [ m isKindOfIDBObject ] message: 'Not an IDBObject'.
+                    assert: [ m2 slot1 printString = m slot1 printString ] message: 'getAll failed List slotA'.
+                    sublist1: m slot2. sublist2: m2 slot2. 
+                    assert: [ sublist1 size > 0 ] message: 'getAll failed List. List is empty'.
+                    assert: [ sublist1 size = sublist2 size ] message: 'getAll listModel failed list sizes not eaqual'.
+                    m: sublist1 first. m2: sublist2 first.
+                    assert: [ m slotB printString = m2 slotB printString ] message: 'getAll List failed. child slotB'.
+                    assert: [ m slotA = m2 slotA ] message: 'getAll List failed. child slotA'.
+            ] 
+		] ensure: [
+                    addeditems do: [ :toBeDeleted <IDBObject> |
+                        subject deleteTestObject: toBeDeleted ]
+		].
+		nil ].
+)
+public testGetKeys = (
+	| items <List> = List new
+    					add: modelBasic;
+                        add: modelBasic;
+                        add: modelBasic;
+                        yourself. |
+	subject addTestObjects: items onComplete: [ :addeditems |
+        [
+			subject getKeysTest: [ :keys <List[UUID]> |
+    			assert: [ keys size > 0 ] message: 'Get keys returned 0 keys'.
+                nil.
+			]
+		] ensure: [
+                addeditems do: [ :toBeDeleted <IDBObject> |
+                    subject deleteTestObject: toBeDeleted ]
+		].
+        nil ]
+)
+public testGetAllComplex = (
+	| items <List> = List new
+    					add: modelComplex;
+                        add: modelComplex;
+                        add: modelComplex;
+                        yourself. |
+    subject addTestObjects: items onComplete: [ :addeditems |
+		[
+       		subject getAllTest: [ :list <List[IDBObject]> |
+                assert: [ list size = addeditems size ] message: '0 results returned'.
+                assert: [ list first isKindOfIDBObject ] message: 'Not an IDBObject'.
+                assert: [ addeditems first slot2 slotA = list first slot2 slotA ] message: 'getAll failed c2 slotA'.
+                assert: [ addeditems first slot2 slotB printString = list first slot2 slotB printString ] message: 'getAll failed c2 slotB (alien date)'
             ]
+		] ensure: [
+        	addeditems do: [ :toBeDeleted <IDBObject> |
+                        subject deleteTestObject: toBeDeleted ]
+		].
+		nil ].
 )
 ) : (
 TEST_CONTEXT = ()
-)
-public class VictoryFuelTests = TestContext (
-) (
-public xtestClosures = (
-	|
-    serializer <Serializer> = Serializer new.
-    deserializer <Deserializer> = Deserializer new.
-    m <IDBTestingModel> = IDBTestingModel new slot1: [ :a :b | ^a + b ]; slot2: 'buzz'; yourself.
-	b <ByteArray>
-    o <IDBTestingModel>
-    |
-	'Testing DS...' out.
-    victoryFuel useAdditionalObjects: { IDBTestingModel. IDBTestingChildModel. }.
-	b:: serializer serialize: m.
-    o:: deserializer deserialize: b.
-    assert: [ o slot1 = m slot1 ] message: 'Serialize/Deserialize failed slot1'.
-    assert: [ o slot2 = m slot2 ] message: 'Serialize/Deserialize failed slot2'.
-)
-public testSerializeDeserializeComplex = (
-	|
-    serializer = Serializer withAdditionalSharedObjects: { IDBTestingModel. IDBTestingChildModel. }.
-    deserializer = Deserializer new.
-    c1 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 42; slotB: 'ninety'; yourself.
-    c2 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 'c2'; slotB: 'xyz'; yourself.
-    m1 <IDBTestingModel> = IDBTestingModel new
-                                                                                slot1: c1;
-    																			slot2: c2;
-                                                                                yourself.
-    m2 <IDBTestingModel>
-    b <ByteArray>
-    o <IDBTestingModel>
-    |
-	'Testing DS Complex...' out.
-	b:: serializer serialize: m1.
-    m2:: deserializer deserialize: b.
-	assert: [ m2 slot1 slotA = m1 slot1 slotA ] message: 'Complex Serialize/Deserialize failed c1 slotA'.
-	assert: [ m2 slot1 slotB = m1 slot1 slotB ] message: 'Complex Serialize/Deserialize failed c1 slotB'.
-	assert: [ m2 slot2 slotA = m1 slot2 slotA ] message: 'Complex Serialize/Deserialize failed c2 slotA'.
-	assert: [ m2 slot2 slotB = m1 slot2 slotB ] message: 'Complex Serialize/Deserialize failed c2 slotB'.
-)
-public testSerializeDeserializeArray = (
-	|
-    serializer <Serializer> = Serializer withAdditionalSharedObjects: { IDBTestingModel. IDBTestingChildModel. }.
-    deserializer <Deserializer> = Deserializer new.
-    c1 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 42; slotB: 'ninety'; yourself.
-    c2 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 'c2'; slotB: 'xyz'; yourself.
-    m1 <IDBTestingModel> = IDBTestingModel new
-                                                                                slot1: '42';
-    																			slot2: ((Array new: 2) at: 1 put: c1; at: 2 put: c2; yourself);
-                                                                                yourself.
-    m2 <IDBTestingModel>
-    b <ByteArray>
-    a1 <List>
-    a2 <List>
-    x1 <String>
-    x2 <String>
-    |
-	'Testing DS Array...' out.
-    b:: serializer serialize: m1.
-    m2:: deserializer deserialize: b.
-	assert: [ m2 slot1 = m1 slot1 ] message: 'List Serialize/Deserialize failed slot1'.
-
-    a1:: m1 slot2. a2:: m2 slot2.
-    x1:: a1 at: 1. x2:: a2 at: 1.
-    assert: [ x1 slotA = x2 slotA ] message: 'Array failed Item 1 slotA: ', x1 slotA printString, ' is not equal to ', x2 slotA printString.
-    assert: [ x1 slotB = x2 slotB ] message: 'Array failed Item 1 slotB: ', x1 slotB printString, ' is not equal to ', x2 slotB printString.
-    x1:: a1 at: 2. x2:: a2 at: 2.
-    assert: [ x1 slotA = x2 slotA ] message:  'Array failed Item 2 slotA: ', x1 slotA printString, ' is not equal to ', x2 slotA printString.
-    assert: [ x1 slotB = x2 slotB ] message: 'Array failed Item 2 slotB: ', x1 slotB printString, ' is not equal to ', x2 slotB printString.
-)
-public testSerializeDeserializeList = (
-	|
-    serializer <Serializer> = Serializer withAdditionalSharedObjects: { IDBTestingModel. IDBTestingChildModel. }.
-    deserializer <Deserializer> = Deserializer new.
-    c1 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 42; slotB: 'ninety'; yourself.
-    c2 <IDBTestingChildModel> = IDBTestingChildModel new slotA: 'c2'; slotB: 'xyz'; yourself.
-    m1 <IDBTestingModel> = IDBTestingModel new
-                                                                                slot1: '42';
-    																			slot2: (List new add: c1; add: c2; yourself);
-                                                                                yourself.
-    m2 <IDBTestingModel>
-    b <ByteArray>
-    a1 <List>
-    a2 <List>
-    c1p
-    c2p
-    |
-	'Testing DS List...' out.
-    b:: serializer serialize: m1.
-	m2:: deserializer deserialize: b.
-	assert: [ m2 slot1 = m1 slot1 ] message: 'List Serialize/Deserialize failed slot1'.
-
-	a2:: m2 slot2. c1p:: a2 first. c2p:: a2 last.
-	assert: [ c1 slotA = c1p slotA ] message: 'List Serialize/Deserialize failed Item 1 slotA'.
-    assert: [ c1 slotB = c1p slotB ] message: 'List Serialize/Deserialize failed Item 1 slotB'.
-
-	assert: [ c2 slotA = c2p slotA ] message: 'List Serialize/Deserialize failed Item 2 slotA'.
-	assert: [ c2 slotB = c2p slotB ] message: 'List Serialize/Deserialize failed Item 2 slotB'.
-)
-public testSerializeDeserialize = (
-	|
-    serializer <Serializer> = Serializer withAdditionalSharedObjects: (List new add: IDBTestingModel; add: IDBTestingChildModel; add: Alien; yourself).
-    deserializer <Deserializer> = Deserializer new.
-    m <IDBTestingModel> = IDBTestingModel new slot1: JSDate new; slot2: 'buzz'; yourself.
-	b <ByteArray>
-    o <IDBTestingModel>
-    |
-	b:: serializer serialize: m.
-    o:: deserializer deserialize: b.
-    assert: [ o slot1 printString = m slot1 printString ] message: 'Serialize/Deserialize failed slot1'.
-    assert: [ o slot2 = m slot2 ] message: 'Serialize/Deserialize failed slot2'.
-)
-) : (
-TEST_CONTEXT = (
-)
 )
 public modelComplex =  (
     ^IDBTestingModel new slot1: 'complex'; slot2: modelChild1; yourself

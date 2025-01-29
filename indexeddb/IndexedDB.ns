@@ -142,26 +142,6 @@ onGetAll: r <List[IDBObject]> = (
 onPut: event  <Alien[Event]> = (
 	'onPut triggered' out.
 )
-getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]> onError: errorHandler <[:Alien[Event]]>= (
-		|
-        storeName <String> = (ClassMirror reflecting: class) mixin name.
-        tx <Alien[IDBTransaction]>
-        store <Alien[IDBObjectStore]>
-        req <Alien[IDBRequeste]>
-        r <List[String]> = List new.
-        |
-    	tx:: db transaction: storeName for: 'readonly'.
-    	store:: tx objectStore: storeName.
-    	req:: store getAllKeys.
-    	req addEventListener: 'success' handler: [ :e <Event> |
-			| a <Alien[Array[String]]> = (e at: 'target') at: 'result'. |
-      		1 to: (a at: 'length') do: [ :i <Integer> | r add: (a at: (i - 1)) ].
-        	onGetKeys: r for: k.
-            nil
-        ].
-   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
-   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
-)
 onGet: o <IDBObject> = (
 	'onGet triggered' out. 
 )
@@ -326,6 +306,25 @@ get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandle
 		].
    		tx addEventListener: 'complete' handler: [ :e <Event> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
+)
+getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]> onError: errorHandler <[:Alien[Event]]>= (
+		|
+        storeName <String> = (ClassMirror reflecting: class) mixin name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBRequeste]> = store getAllKeys.
+        |
+    	req addEventListener: 'success' handler: [ :e <Event> |
+			|
+            a <Alien[Array[String]]> = (e at: 'target') at: 'result'.
+        	r <List[String]> = List new.
+            |
+      		1 to: (a at: 'length') do: [ :i <Integer> | r add: (a at: (i - 1)) ].
+        	onGetKeys: r.
+            nil
+        ].
+   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
 ) : (
 )

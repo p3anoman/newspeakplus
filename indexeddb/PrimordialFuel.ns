@@ -485,14 +485,6 @@ public writeEdges = (
 		writeRef:: object numArgs.
 		1 to: (numCopiedOf: object) do: [:index | writeRef: (copiedOf: object at: index)]]
 )
-public writeNodes = (
-	'writing closure' out.
-	writeFormat: kClosureCid negated.
-	stream unsigned: objects size.
-	objects do: [:object |
-		registerRef: object.
-		stream uint16: (numCopiedOf: object)].
-)
 public analyze: object = (
 	objects add: object.
 
@@ -501,6 +493,13 @@ public analyze: object = (
 	enqueue:: object numArgs.
 
 	1 to: (numCopiedOf: object) do: [:index | enqueue: (copiedOf: object at: index)].
+)
+public writeNodes = (
+	writeFormat: kClosureCid negated.
+	stream unsigned: objects size.
+	objects do: [:object |
+		registerRef: object.
+		stream uint16: (numCopiedOf: object)].
 )
 ) : (
 )
