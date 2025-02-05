@@ -1,1 +1,1 @@
-Addon libraries for Newspeak https://github.com/newspeaklanguage/newspeak
+Addon libraries for Newspeak https://newspeaklanguage.org/WebIDE
