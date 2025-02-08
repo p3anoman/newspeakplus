@@ -82,7 +82,8 @@ public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[
 ) : (
 )
 public class IDBSubject onModel: m <Object>
-										modelClasses: mc <List[Class[IDBObject]]>
+										storeClasses: sc <Array[Class[IDBObject]]>
+										modelClasses: mc <Array[Class[IDBObject]]>
                                         databaseName: n <String>
                                         databaseVersion: v <Integer>
 (* :exemplar_1: [
@@ -109,11 +110,12 @@ public class IDBSubject onModel: m <Object>
 	|
  	(* The connection to the application's database *)
  	public db <Alien[IDBDatabase]>
- 	public modelClasses <List> = List new addAll: mc; yourself.
+    private storeClasses = List new addAll: sc.
+ 	public modelClasses = List new addAll: mc.
     public databaseName = n.
     public databaseVersion = v.
 	|
-    (modelClasses includes: Alien) ifFalse: [ modelClasses add: Alien ].
+    modelClasses addAll: sc; add: Alien; yourself.
 ) (
 put: o <IDBObject> = (
 	put: o onComplete: [ :e | ] onError: [ :e | ]
@@ -153,13 +155,6 @@ getAll: class <Class[IDBObject]>  = (
 )
 getKeys: class <Class[IDBObject]> = (
 	getKeys: class onComplete: [ :e | nil ] onError: [ :e | nil ]
-)
-onUpgradeNeeded: event <Alien[Event]> = (
-	(* The default handler for the 'upgradeneeded' event generated on version change. *)
-    (* This default 'Version 1' creates the required IDBObjectStores for the FIRST class in the modelClasses array *)
-    db::  (event at: #target) at: #result.
-	db createObjectStore: modelClasses first name.
-    'upgradeneeded triggered' out.
 )
 public openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> = (
 	openDB: version onSuccess: successHandler onFailure: [ :ex | nil ]
@@ -314,17 +309,17 @@ getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]
    		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
+onUpgradeNeeded: event <Alien[Event]> = (
+	(* The default handler for the 'upgradeneeded' event generated on version change. *)
+    (* This default 'Version 1' creates the required IDBObjectStores for storeClasses array *)
+    db::  (event at: #target) at: #result.
+    storeClasses do: [ :klass | db createObjectStore: klass name ].
+    'upgradeneeded triggered' out.
+)
 onOpen: event <Alien[Event]> = (
 	'onOpen DB called' out.
     db:: (event at: #target) at: #result.
-    getAll: modelClasses first
-    (* 
-    modelClasses do: [ :m |
-        	getAll: m
-            onSuccess: [ :r <List[IDBObject]> | onGetAll: r. nil ]
-            onFailure: [ :err | 'Failed to get all' out. nil ].
-    ].
-    *)
+    storeClasses do: [ :k | getAll: k ].
 )
 ) : (
 )
