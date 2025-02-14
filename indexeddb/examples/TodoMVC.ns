@@ -177,8 +177,11 @@ public title = (
 )
 ) : (
 )
-public class TodoMVCSubject onModel: l <List>
-= IDBSubject onModel: l modelClasses: { TodoItem } databaseName: 'TodoMVC' databaseVersion: 1 (
+public class TodoMVCSubject onModel: m = IDBSubject onModel: m
+																							storeClasses: { TodoItem }
+																							modelClasses: {}
+                                                                                            databaseName: 'TodoMVC'
+                                                                                            databaseVersion: 1 (
   | 
   public filterState <Symbol> ::= #all. 
   todoSubjects = todos collect: [:ti <TodoItem> | TodoItemSubject onModel: ti parent: self ]. 

@@ -98,24 +98,22 @@ public class IDBSubject onModel: m <Object>
 (*
 	IDBSubject is the main "driver" class for IndexedDB opeerations.
     Inputs:
-    	onModel: This is the typical application model. Note that it is separate from and should not be included in the modelClasses list.
-        modelClasses: The "data models" that will be stored in IndexedDB. The FIRST class in the list determines the ONE object store.
-        						which will be created automatically. Any child objects (instances  of the remaining classes in the list) will be serialized 
-                                with the (expected) parent class (the first class in the list). In other words, child objects are expected to appear in main class
-                                objects as either one in a slot or in a list of (homogenous) child objects.
+    	onModel: This is the typical application model. Note that this should not be included in the modelClasses list.
+        storeClasses: Classes for which an IDBObjectStore will be created.
+        modelClasses: Child expected to be serialized 
 		databaseName: The name of the database.
-        databaseVersion: Whenever the version changes, the "onUpgradeNeeded event is fired
+        databaseVersion: Whenever the version changes, the onUpgradeNeeded event is fired
 *)
 = Subject onModel: m (
 	|
  	(* The connection to the application's database *)
  	public db <Alien[IDBDatabase]>
-    private storeClasses = List new addAll: sc.
- 	public modelClasses = List new addAll: mc.
+    private stores = List new addAll: sc.
+ 	public models = List new addAll: mc.
     public databaseName = n.
     public databaseVersion = v.
 	|
-    modelClasses addAll: sc; add: Alien; yourself.
+    models addAll: sc; add: Alien; yourself.
 ) (
 put: o <IDBObject> = (
 	put: o onComplete: [ :e | ] onError: [ :e | ]
@@ -251,25 +249,6 @@ delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <C
     tx addEventListener: 'complete' handler: completeBlock.
     tx addEventListener: 'error' handler: errorBlock.
 )
-serialize: o <IDBObject>^<Alien[Object]> = (
-	|
-    serializer <Serializer> = Serializer withAdditionalSharedObjects: modelClasses.
-    result <Alien[Object]> = JSObject new.
-    |
-    result at: 'psoup' put: (blobFromBytes: (serializer serialize: o)).
-	result at: 'aliens' put: o serializeAliens.
-    ^result
-)
-deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
-		|
-        deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: modelClasses.
-        ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.
-        n <Integer> = ui8 at: 'length'.
-        bytes <ByteArray> = ByteArray new: n.
-        |
-        1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
-        ^deserializer deserialize: bytes.
-)
 get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
 		|
         storeName = (ClassMirror reflecting: class) mixin name.
@@ -309,17 +288,36 @@ getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]
    		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
-onUpgradeNeeded: event <Alien[Event]> = (
-	(* The default handler for the 'upgradeneeded' event generated on version change. *)
-    (* This default 'Version 1' creates the required IDBObjectStores for storeClasses array *)
-    db::  (event at: #target) at: #result.
-    storeClasses do: [ :klass | db createObjectStore: klass name ].
-    'upgradeneeded triggered' out.
-)
 onOpen: event <Alien[Event]> = (
 	'onOpen DB called' out.
     db:: (event at: #target) at: #result.
     storeClasses do: [ :k | getAll: k ].
+)
+onUpgradeNeeded: event <Alien[Event]> = (
+	(* The default handler for the 'upgradeneeded' event generated on version change. *)
+    (* This default 'Version 1' creates the required IDBObjectStores for storeClasses array *)
+    db::  (event at: #target) at: #result.
+    stores do: [ :klass | db createObjectStore: klass name ].
+    'upgradeneeded triggered' out.
+)
+serialize: o <IDBObject>^<Alien[Object]> = (
+	|
+    serializer <Serializer> = Serializer withAdditionalSharedObjects: models.
+    result <Alien[Object]> = JSObject new.
+    |
+    result at: 'psoup' put: (blobFromBytes: (serializer serialize: o)).
+	result at: 'aliens' put: o serializeAliens.
+    ^result
+)
+deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
+		|
+        deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: models.
+        ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.
+        n <Integer> = ui8 at: 'length'.
+        bytes <ByteArray> = ByteArray new: n.
+        |
+        1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
+        ^deserializer deserialize: bytes.
 )
 ) : (
 )
