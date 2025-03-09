@@ -288,11 +288,6 @@ getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]
    		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
-onOpen: event <Alien[Event]> = (
-	'onOpen DB called' out.
-    db:: (event at: #target) at: #result.
-    storeClasses do: [ :k | getAll: k ].
-)
 onUpgradeNeeded: event <Alien[Event]> = (
 	(* The default handler for the 'upgradeneeded' event generated on version change. *)
     (* This default 'Version 1' creates the required IDBObjectStores for storeClasses array *)
@@ -318,6 +313,11 @@ deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
         |
         1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
         ^deserializer deserialize: bytes.
+)
+onOpen: event <Alien[Event]> = (
+	'onOpen DB called' out.
+    db:: (event at: #target) at: #result.
+    stores do: [ :k | getAll: k ].
 )
 ) : (
 )
