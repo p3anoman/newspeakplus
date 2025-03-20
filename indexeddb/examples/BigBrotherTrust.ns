@@ -155,7 +155,8 @@ public transactionType = (
 )
 public class BankAccountSubject onModel: m <BigBrotherTrust>
 = IDBSubject onModel: m 
-						modelClasses: (List new add: BankTransaction; yourself)
+						storeClasses: { BankTransaction }
+						modelClasses: {}
                         databaseName: 'BigBrotherTrust'
                         databaseVersion: 1 (
 ) (
