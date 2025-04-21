@@ -82,7 +82,7 @@ public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[
 ) : (
 )
 public class IDBSubject onModel: m <Object>
-										storeClasses: sc <Array[Class[IDBObject]]>
+										storeClasses: sc <Array[IDBStore]>
 										modelClasses: mc <Array[Class[IDBObject]]>
                                         databaseName: n <String>
                                         databaseVersion: v <Integer>
@@ -93,10 +93,17 @@ public class IDBSubject onModel: m <Object>
     |
     Klass install.
     ModelKlass install.
-	IDBSubject onModel: ApplicationModel new modelClasses: { IDBObjectClass } databaseName: 'TestDB' databaseVersion: 1984 ] value
+    idx:: IDBIndex named: 'slot1' path: 'slot1' unique: false.
+    store:: IDBStore forClass: ApplicationModel indexes: { idx }.
+	IDBSubject
+    	onModel: List new
+        storeClasses: { store }
+        modelClasses: { IDBObjectClass }
+        databaseName: 'TestDB'
+        databaseVersion: 1984 ] value
 *)
 (*
-	IDBSubject is the main "driver" class for IndexedDB opeerations.
+	IDBSubject is the main "driver" class for IndexedDB operations.
     Inputs:
     	onModel: This is the typical application model. Note that this should not be included in the modelClasses list.
         storeClasses: Classes for which an IDBObjectStore will be created.
@@ -108,12 +115,15 @@ public class IDBSubject onModel: m <Object>
 	|
  	(* The connection to the application's database *)
  	public db <Alien[IDBDatabase]>
-    private stores = List new addAll: sc.
- 	public models = List new addAll: mc.
-    public databaseName = n.
-    public databaseVersion = v.
+    private stores <List[IDBStore]> = List new addAll: sc.
+ 	public models <List[Class]> = List new addAll: mc.
+    public databaseName <String> = n.
+    public databaseVersion <Integer> = v.
 	|
-    models addAll: sc; add: Alien; yourself.
+    models
+    	addAll: (stores collect: [ :s <IDBStore> | s storeClass ]);
+        add: Alien;
+        yourself.
 ) (
 put: o <IDBObject> = (
 	put: o onComplete: [ :e | ] onError: [ :e | ]
@@ -288,13 +298,6 @@ getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]
    		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
-onUpgradeNeeded: event <Alien[Event]> = (
-	(* The default handler for the 'upgradeneeded' event generated on version change. *)
-    (* This default 'Version 1' creates the required IDBObjectStores for storeClasses array *)
-    db::  (event at: #target) at: #result.
-    stores do: [ :klass | db createObjectStore: klass name ].
-    'upgradeneeded triggered' out.
-)
 serialize: o <IDBObject>^<Alien[Object]> = (
 	|
     serializer <Serializer> = Serializer withAdditionalSharedObjects: models.
@@ -319,6 +322,37 @@ onOpen: event <Alien[Event]> = (
     db:: (event at: #target) at: #result.
     stores do: [ :k | getAll: k ].
 )
+onUpgradeNeeded: event <Alien[Event]> = (
+	(* The default handler for the 'upgradeneeded' event generated on version change. *)
+    (* This default 'Version 1' creates the required IDBObjectStores for storeClasses array *)
+    db:: (event at: #target) at: #result.
+    stores do: [ :store <IDBStore> |
+    	| idbStore <Alien[IDBObjectStore]> = db createObjectStore: store name. |
+    	store indexes do: [ :idx <IDBIndex> |
+        	| jso = JSObject new at: 'unique' put: idx unique; yourself. |
+        	idbStore addIndex: idx name path: idx key unique: jso. ]].
+    'upgradeneeded triggered' out.
+)
+) : (
+)
+public class IDBStore forClass: cls <Class> indexes: idxs <Array[IDBIndex]> = (
+	|
+	storeClass = cls.
+	indexes = idxs.
+	|
+) (
+) : (
+)
+public class IDBIndex
+	named: n <String>
+    key: k <String>
+    unique: u <Boolean> = (
+	|
+	name = n.
+    key = k.
+	unique = u.
+	|
+) (
 ) : (
 )
 ) : (
