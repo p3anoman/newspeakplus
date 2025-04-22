@@ -165,5 +165,8 @@ public alienTableSize = (
 	(* :literalmessage: primitive: 158 *)
 	halt
 )
+public localStorage ^ <Alien> = (
+  ^(global at: #window) at: #localStorage
+)
 ) : (
 )
