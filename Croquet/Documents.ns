@@ -72,14 +72,17 @@ Copyright Gilad Bracha 2022-2025
     private JSString = p js global at: 'String'.
     private JSZip = p js global at: 'JSZip'.
     private URL = p js global at: 'URL'.
+
+	(* Croquet *)
     private JSFunction = p js global at: 'Function'.
     private doc = p js global at: 'document'.
-    private croquetSession
-
+    private MultisynqSession = (p js global at: 'Multisynq') at: 'Session'.
+    private MultisynqApp = (p js global at: 'Multisynq') at: 'App'.
+    
     private ide = webIDE.
     private retainedPlatform = p.
     parser = retainedPlatform mirrors compiler parser.
-  |
+	|
   webIDE browsing addObjectViews: {DocumentPresenter} forKind: 'isKindOfDocument'.
 ) (
 public class TwoViewEditorSubject onModel: m <Document> = Subject onModel: m (
@@ -1198,7 +1201,6 @@ updateVisualsFromSameKind: oldPresenter <Self> ^ <Alien[Element]> = (
 definition ^ <Fragment> = (
   twoViewEditor::  (TwoViewEditorSubject onModel:  subject document) presenter. 
   commentary:: (CommentsSubject onModel: Comments new forDocument: subject model) presenter.
-'DocumentPresenter definition' out.
   ^column: {
        helpSection.
        toolbarToggle.
@@ -1493,15 +1495,12 @@ modelSource = (
 public leave = (
 	croquetSession leave
 )
-public isConnected = ( 'comments isconnected' out.
-	^croquetSession isNil not
-)
 public startup: theDocument <String> = (
 	| declaration options |
 	html.
     declaration:: JSFunction new: modelSource.
     commentsModel: declaration call. 
-    commentsModel register: 'CommentaryModel'.
+    commentsModel register: theDocument.
     declaration:: JSFunction new: viewSource.
     commentsView: declaration call.
 
@@ -1509,12 +1508,44 @@ public startup: theDocument <String> = (
         at: 'apiKey' put: '2uxfxxfqDCcdSY7qTNln84f9TexqFpFgX4BOk5rJs6';
         at: 'appId' put: 'com.ampleforth.', theDocument, '.comments';
         at: 'name' put: theDocument; (* MultisynqApp autoSession; *)
-        at: 'password' put: 'com.chalculator.01';
-        at: 'model' put: chalculatorModel;
-        at: 'view' put: chalculatorView;
+        at: 'password' put: MultisynqApp autoPassword;
+        at: 'model' put: commentsModel;
+        at: 'view' put: commentsView;
         yourself.
     croquetSession:: MultisynqSession join: options.
 
+)
+public isConnected = (
+	^croquetSession isNil not
+)
+viewSource = (
+	^'
+    	class CommentsView extends Multisynq.View {
+			constructor(model){
+            	super(model)
+            	this.model = model
+    			commentate.onclick = event => this.onCommentate(event)
+        		this.subscribe(this.model.sessionId,"update", this.onUpdate)
+        	}
+        
+            onUpdate(data){
+                let vals = data.split(";")
+                let li = document.createElement("li")
+                let guest=document.createElement("span")
+                guest.innerText = vals[0]
+                li.addChild(guest)
+                comment = document.createElement("span")
+                comment.innerText = vals[1]
+                li.addChild(comment)
+                commentList.appendChild(li)
+			}
+            
+            onCommentate(event) {
+            	this.publish(this.model.sessionId, "new", nameinput.innerText + ";" + commentinput.innerText)
+            }
+    }
+    return CommentsView
+    '
 )
 html = (
 	| container comments nameInput commentInput commentBtn inputs inputsText heading h4 joinBtn leaveBtn |
@@ -1528,40 +1559,13 @@ html = (
 				nameInput:: doc createElement: 'input'. nameInput at: 'type' put: 'text'; at: 'id' put: 'nameinput'. inputs appendChild: nameInput.
 				commentInput:: doc createElement: 'textarea'. commentInput at: 'type' put: 'text'; at: 'id' put: 'commentinput'. inputs appendChild: commentInput.
                 commentBtn:: doc createElement: 'button'. commentBtn at: 'id' put: 'commentate'; at: 'innerText' put: 'Comment'; at: 'className' put: 'btn-primary'. inputs appendChild: commentBtn.
+		comments:: doc createElement: 'ol'.
+        container appendChild: comments
     
-)
-viewSource = (
-	^'
-    	class CommentsView extends Multisynq.View {
-			constructor(model){
-            	this.model = model
-    			commentate.onclick = event => this.onCommentate(event)
-        		this.subscribe(model.sessionId,"update", this.onUpdate)
-        	}
-        
-            onUpdate(data){
-                { name, commentary, ... } = data.split(";")
-                let li = document.createElement("li")
-                let guest=document.createElement("span")
-                guest.innerText = name
-                li.addChild(guest)
-                comment = document.createElement("span")
-                comment.innerText = commentary
-                li.addChild(comment)
-                commentList.appendChild(li)
-			}
-            
-            onCommentate(event) {
-            	publish(model.sessionId, "new", nameinput.innerText + ";" + commentinput.innerText)
-            }
-    }
-    return CommentsView
-    '
 )
 ) : (
 )
 class CommentsPresenter onSubject: s = Presenter onSubject: s (
-	'CommentsPresenter create' out.
 ) (
 isMyKind: other = (
 	^other isKindOfCommentsPresenter
@@ -1572,29 +1576,28 @@ public isKindOfCommentsPresenter = (
 commentary = (
 	^subject commentary
 )
-definition = (
-	^column: {
-    	row: { 
-            joinButton.
-            label: 'Join The Two Minutes Hate'.
-            leaveButton. }
-	}
+titleLabel = (
+	| lbl = label: 'TwoMinutesDebate'. |
+    lbl visual at: 'style' put: 'font-size: 125%;width:15em'; at: 'align' put: 'center'.
+    ^lbl
 )
-leaveButton = ( 'connected' out.
-	^ subject isConnected
-		ifTrue: [ button: 'Leave' action: [ updateGUI: [ subject leaveCommentary ]]]
-        ifFalse: [ nothing ]
+definition = ( 
+	^row: {  joinButton. smallBlank. titleLabel. }.
 )
 joinButton = (
-	^ subject isConnected
-    	ifFalse: [  'connected' out. button: 'Join' action: [ updateGUI: [ subject joinCommentary ]]]
-        ifTrue: [ nothing ].
+	| btn =  button: 'Join' action: [ updateGUI: [ subject joinCommentary ]]. |
+	btn visual at: 'style' put: 'font-size: 125%;width:5em'.
+	^subject isConnected ifFalse: [ btn ] ifTrue: [nothing.].
+)
+leaveButton = (  (* Not Used *)
+	| btn = button: 'Leave' action: [ updateGUI: [ subject leaveCommentary ]]. |
+	btn visual at: 'style' put: 'font-size: 125%;width:5em'.
+	^subject isConnected ifTrue: [ btn ] ifFalse: [ nothing ].
 )
 ) : (
 )
 public class CommentsSubject onModel: m <Comments> forDocument: d = Subject onModel: m (
 	| sessionName = d name. |
-    'CommentSubject create' out.
 ) (
 isMyKind: other = (
 	^other isKindOfCommentsSubject
