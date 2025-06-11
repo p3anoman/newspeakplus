@@ -1528,7 +1528,7 @@ viewSource = (
         		this.subscribe(this.model.sessionId,"update", this.onUpdate)
         	}
         
-            onUpdate(data){
+            onUpdate(){
                 let vals = data.split(";")
                 let li = document.createElement("li")
                 let guest=document.createElement("span")
@@ -1537,7 +1537,7 @@ viewSource = (
                 comment = document.createElement("span")
                 comment.innerText = vals[1]
                 li.addChild(comment)
-                commentList.appendChild(li)
+                commentlist.appendChild(li)
 			}
             
             onCommentate(event) {
@@ -1559,7 +1559,7 @@ html = (
 				nameInput:: doc createElement: 'input'. nameInput at: 'type' put: 'text'; at: 'id' put: 'nameinput'. inputs appendChild: nameInput.
 				commentInput:: doc createElement: 'textarea'. commentInput at: 'type' put: 'text'; at: 'id' put: 'commentinput'. inputs appendChild: commentInput.
                 commentBtn:: doc createElement: 'button'. commentBtn at: 'id' put: 'commentate'; at: 'innerText' put: 'Comment'; at: 'className' put: 'btn-primary'. inputs appendChild: commentBtn.
-		comments:: doc createElement: 'ol'.
+		comments:: doc createElement: 'ol'. comments at: 'id' put: 'commentlist'.
         container appendChild: comments
     
 )
