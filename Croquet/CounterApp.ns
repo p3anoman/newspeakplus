@@ -1,0 +1,135 @@
+Newspeak3
+'Root'
+class CounterApp packageUsing: manifest = (
+	|
+	Croquet = manifest Croquet.
+	|
+) (
+public class Counter usingPlatform: p croquet: c = (
+	|
+	CroquetSubject = c CroquetSubject.
+    CroquetPresenter = c CroquetPresenter.
+    CroquetConfiguration = c CroquetConfiguration.
+	|
+) (
+public class CounterSubject onModel: m = CroquetSubject
+																			onModel: m
+																			withConfiguration: (CroquetConfiguration
+                                                                            											apiKey: '2uxfxxfqDCcdSY7qTNln84f9TexqFpFgX4BOk5rJs6'
+                                                                                                                        appId: 'com.chalculator.counter'
+                                                                                                                        registerName: 'Counter') (
+) (
+isMyKind: other = (
+	^other isKindOfCounterSubject
+)
+public isKindOfCounterSubject = (
+	^true
+)
+public createPresenter = (
+	^CounterPresenter onSubject: self
+)
+croquetModelSource = (
+	^'class CroquetModel extends Multisynq.Model {
+    		init() {
+            	this.count = 0
+            	this.subscribe(this.sessionId,"increment",this.increment)
+                this.subscribe(this.sessionId,"decrement",this.decrement)
+                this.subscribe(this.sessionId,"reset",this.reset)
+			}
+            increment() {
+            	this.count += 1
+                this.publish(this.sessionId,"update")
+            }
+            decrement() {
+            	this.count -= 1
+                this.publish(this.sessionId,"update")
+            }
+            reset() {
+            	this.count = 0
+                this.publish(this.sessionId,"update")
+            }
+	}
+    return CroquetModel
+    '
+)
+public startup = (
+	synq: [:this <Alien[CroqueView]> |
+            croquetSession: ((this at: 'model') at: 'sessionId').
+        	croquetInstance: this.
+            nil ]
+)
+public decrement = (
+	croquetInstance publish: croquetSession message: 'decrement'
+)
+public reset = (
+	croquetInstance publish: croquetSession message: 'reset'
+)
+public increment = (
+	croquetInstance publish: croquetSession message: 'increment'
+)
+setup = (
+    	(croquetView at: 'prototype') at: 'onUpdate' put: [ :x | onUpdate. nil ].
+)
+croquetViewSource = (
+	^'class CroquetView extends Multisynq.View {
+    	constructor(model) {
+            super(model)
+            this.model = model
+            this.subscribe(model.sessionId,"update",this.onUpdate)
+            this.onconnect(this)
+		}
+    } return CroquetView'
+)
+public startup: onComplete <[]> = (
+	synq: [:this <Alien[CroqueView]> |
+            croquetSession: ((this at: 'model') at: 'sessionId').
+        	croquetInstance: this.
+            onComplete value.
+            nil ]
+)
+onUpdate = ( 'onUpdate called' out.
+	(* count:: (croquetInstance at: 'model') at: 'count'. count printString out. *)
+    presenter refresh.
+)
+public count = (
+	^(croquetInstance at: 'model') at: 'count'.
+)
+) : (
+)
+class CounterPresenter onSubject: s = CroquetPresenter onSubject: s (
+) (
+isMyKind: other = (
+	^other isKindOfCounterPresenter
+)
+public isKindOfCounterPresenter = (
+	^true
+)
+public refresh = (
+	updateGUI: []
+)
+definition = (
+	^row: {
+    	button: '-' action: [ subject decrement ].
+        mediumBlank.
+        label: subject count printString.
+        mediumBlank.
+    	button: '+' action: [ subject increment ].
+        button: 'Reset' action: [ subject reset ].
+	}
+)
+) : (
+)
+) : (
+)
+public main: platform args: a = (
+	|
+    croquetLibrary = Croquet usingPlatform: platform.
+    counterLibrary = Counter usingPlatform: platform croquet: croquetLibrary.
+    s = counterLibrary CounterSubject onModel: 0.
+    |
+    s startup: [
+    	platform hopscotch EmbeddedHopscotchWindow openSubject: s
+   ].
+)
+) : (
+)
