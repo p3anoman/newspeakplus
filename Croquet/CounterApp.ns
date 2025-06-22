@@ -15,8 +15,8 @@ public class Counter usingPlatform: p croquet: c = (
 public class CounterSubject onModel: m = CroquetSubject
 																			onModel: m
 																			withConfiguration: (CroquetConfiguration
-                                                                            											apiKey: '2uxfxxfqDCcdSY7qTNln84f9TexqFpFgX4BOk5rJs6'
-                                                                                                                        appId: 'com.chalculator.counter'
+                                                                            											apiKey: '<your apiKey goes here'
+                                                                                                                        appId: '<your appId goes here>'
                                                                                                                         registerName: 'Counter') (
 ) (
 isMyKind: other = (
