@@ -7,17 +7,18 @@ class CounterApp packageUsing: manifest = (
 ) (
 public class Counter usingPlatform: p croquet: c = (
 	|
+    Presenter = p hopscotch Presenter.
 	CroquetSubject = c CroquetSubject.
-    CroquetPresenter = c CroquetPresenter.
     CroquetConfiguration = c CroquetConfiguration.
 	|
 ) (
 public class CounterSubject onModel: m = CroquetSubject
 																			onModel: m
 																			withConfiguration: (CroquetConfiguration
-                                                                            											apiKey: '<your apiKey goes here'
-                                                                                                                        appId: '<your appId goes here>'
+                                                                            											apiKey: '<Your ApiKey goes here>'
+                                                                                                                        appId: '<Your AppId goes here>'
                                                                                                                         registerName: 'Counter') (
+	| connected ::= false. |
 ) (
 isMyKind: other = (
 	^other isKindOfCounterSubject
@@ -52,21 +53,6 @@ croquetModelSource = (
     return CroquetModel
     '
 )
-public startup = (
-	synq: [:this <Alien[CroqueView]> |
-            croquetSession: ((this at: 'model') at: 'sessionId').
-        	croquetInstance: this.
-            nil ]
-)
-public decrement = (
-	croquetInstance publish: croquetSession message: 'decrement'
-)
-public reset = (
-	croquetInstance publish: croquetSession message: 'reset'
-)
-public increment = (
-	croquetInstance publish: croquetSession message: 'increment'
-)
 setup = (
     	(croquetView at: 'prototype') at: 'onUpdate' put: [ :x | onUpdate. nil ].
 )
@@ -80,13 +66,6 @@ croquetViewSource = (
 		}
     } return CroquetView'
 )
-public startup: onComplete <[]> = (
-	synq: [:this <Alien[CroqueView]> |
-            croquetSession: ((this at: 'model') at: 'sessionId').
-        	croquetInstance: this.
-            onComplete value.
-            nil ]
-)
 onUpdate = ( 'onUpdate called' out.
 	(* count:: (croquetInstance at: 'model') at: 'count'. count printString out. *)
     presenter refresh.
@@ -94,9 +73,31 @@ onUpdate = ( 'onUpdate called' out.
 public count = (
 	^(croquetInstance at: 'model') at: 'count'.
 )
+public isConnected = (
+	^connected
+)
+public decrement = (
+	croquetInstance publish: croquetSessionId message: 'decrement'
+)
+public increment = (
+	croquetInstance publish: croquetSessionId message: 'increment'
+)
+public reset = (
+	croquetInstance publish: croquetSessionId message: 'reset'
+)
+public startup: onComplete <[:CroquetSubject]> = (
+	synq: [:this <Alien[CroqueView]> |
+            croquetSessionId: ((this at: 'model') at: 'sessionId').
+        	croquetInstance: this.
+            connected ifFalse: [
+            	connected:: true.
+            	onComplete value: self
+            ].
+            nil ]
+)
 ) : (
 )
-class CounterPresenter onSubject: s = CroquetPresenter onSubject: s (
+class CounterPresenter onSubject: s = Presenter onSubject: s (
 ) (
 isMyKind: other = (
 	^other isKindOfCounterPresenter
@@ -127,8 +128,8 @@ public main: platform args: a = (
     counterLibrary = Counter usingPlatform: platform croquet: croquetLibrary.
     s = counterLibrary CounterSubject onModel: 0.
     |
-    s startup: [
-    	platform hopscotch EmbeddedHopscotchWindow openSubject: s
+    s startup: [ :subj <CroquetSubject> |
+    	platform hopscotch EmbeddedHopscotchWindow openSubject: subj
    ].
 )
 ) : (

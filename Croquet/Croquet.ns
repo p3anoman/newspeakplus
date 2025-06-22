@@ -9,10 +9,8 @@ class Croquet usingPlatform: platform = (
 	(* Javascript *)
     JSFunction = platform js global at: 'Function'.
     JSObject = platform js global at: 'Object'.
-    JSNumber = platform js global at: 'Number'.
 
     (* Croquet *)
-	MultisynqModel = (platform js global at: 'Multisynq') at: 'Model'.
     MultisynqSession = (platform js global at: 'Multisynq') at: 'Session'.
     MultisynqApp = (platform js global at: 'Multisynq') at: 'App'.
 	|
@@ -25,7 +23,8 @@ public class CroquetSubject onModel: m withConfiguration: config
 	|
 	croquetModel_slot <Alien[Class]>
 	croquetView_slot <Alien[Class]>
-    croquetSession <String>
+    croquetSession <Alien>
+    croquetSessionId <String>
     croquetInstance <Alien[Model]>
     configuration <CroquetConfiguration> = config.
 	|
@@ -46,15 +45,18 @@ croquetView ^<Alien[CroquetView]>= (
     	croquetView_slot:: (JSFunction new: croquetViewSource) call ].
 	^croquetView_slot
 )
-public createPresenter ^<Presenter> = (
-	^CroquetPresenter onSubject: self
-)
 croquetModelSource ^<String> = (
 	^subclassResponsibility
 )
 public synq: onConnectHandler = ( 'synq:' out.
     (croquetView at: 'prototype') at: 'onconnect' put: onConnectHandler.
 	synq.
+)
+croquetViewSource ^<String> = (
+	^subclassResponsibility
+)
+setup = (
+	(* Your application should override this method to install callback handlers into Newspeak *)
 )
 public synq = (
 	| options = JSObject new. |
@@ -67,23 +69,7 @@ public synq = (
         at: 'password' put: MultisynqApp autoPassword;
         at: 'model' put: croquetModel;
         at: 'view' put: croquetView.
-	MultisynqSession join: options.
-)
-croquetViewSource ^<String> = (
-	^subclassResponsibility
-)
-setup = (
-	(* Your application should override this method to install callback handlers into Newspeak *)
-)
-) : (
-)
-public class CroquetPresenter onSubject: s = Presenter onSubject: s (
-) (
-isMyKind: other = (
-	^othe isKindOfCroquetPresenter
-)
-public isKindOfCroquetPresenter = (
-	^true
+	croquetSession:: MultisynqSession join: options.
 )
 ) : (
 )
