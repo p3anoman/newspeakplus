@@ -12,14 +12,14 @@ public class Counter usingPlatform: p croquet: c = (
     CroquetConfiguration = c CroquetConfiguration.
 	|
 ) (
-public class CounterSubject onModel: m = CroquetSubject
-																			onModel: m
-																			withConfiguration: (CroquetConfiguration
-                                                                            											apiKey: '<Your ApiKey goes here>'
-                                                                                                                        appId: '<Your AppId goes here>'
-                                                                                                                        registerName: 'Counter') (
-	| connected ::= false. |
-) (
+public class CounterSubject onModel: m
+= CroquetSubject
+        onModel: m
+        withConfiguration: (CroquetConfiguration
+            box: '/synq'
+            apiKey: ''
+            appId: 'com.chalculator.counterapp'
+            registerName: 'Counter') () (
 isMyKind: other = (
 	^other isKindOfCounterSubject
 )
@@ -29,8 +29,30 @@ public isKindOfCounterSubject = (
 public createPresenter = (
 	^CounterPresenter onSubject: self
 )
+setup = (
+    	(croquetView at: 'prototype') at: 'onUpdate' put: [ :x | onUpdate. nil ].
+)
+onUpdate = ( 'onUpdate called' out.
+	(* count:: (croquetInstance at: 'model') at: 'count'. count printString out. *)
+    presenter refresh.
+)
+public count = (
+	^(croquetInstance at: 'model') at: 'count'.
+)
+public isConnected = (
+	^connected
+)
+public decrement = (
+	croquetInstance publish: croquetSessionId message: 'decrement'
+)
+public increment = (
+	croquetInstance publish: croquetSessionId message: 'increment'
+)
+public reset = (
+	croquetInstance publish: croquetSessionId message: 'reset'
+)
 croquetModelSource = (
-	^'class CroquetModel extends Multisynq.Model {
+	^'class CroquetModel extends Croquet.Model {
     		init() {
             	this.count = 0
             	this.subscribe(this.sessionId,"increment",this.increment)
@@ -53,11 +75,8 @@ croquetModelSource = (
     return CroquetModel
     '
 )
-setup = (
-    	(croquetView at: 'prototype') at: 'onUpdate' put: [ :x | onUpdate. nil ].
-)
 croquetViewSource = (
-	^'class CroquetView extends Multisynq.View {
+	^'class CroquetView extends Croquet.View {
     	constructor(model) {
             super(model)
             this.model = model
@@ -66,33 +85,11 @@ croquetViewSource = (
 		}
     } return CroquetView'
 )
-onUpdate = ( 'onUpdate called' out.
-	(* count:: (croquetInstance at: 'model') at: 'count'. count printString out. *)
-    presenter refresh.
-)
-public count = (
-	^(croquetInstance at: 'model') at: 'count'.
-)
-public isConnected = (
-	^connected
-)
-public decrement = (
-	croquetInstance publish: croquetSessionId message: 'decrement'
-)
-public increment = (
-	croquetInstance publish: croquetSessionId message: 'increment'
-)
-public reset = (
-	croquetInstance publish: croquetSessionId message: 'reset'
-)
 public startup: onComplete <[:CroquetSubject]> = (
 	synq: [:this <Alien[CroqueView]> |
             croquetSessionId: ((this at: 'model') at: 'sessionId').
         	croquetInstance: this.
-            connected ifFalse: [
-            	connected:: true.
-            	onComplete value: self
-            ].
+            onComplete value: self.
             nil ]
 )
 ) : (

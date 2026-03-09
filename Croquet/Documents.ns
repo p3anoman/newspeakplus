@@ -75,8 +75,8 @@ Copyright Gilad Bracha 2022-2025
 
 	(* Croquet *)
     private JSFunction = p js global at: 'Function'.
-    private MultisynqSession = (p js global at: 'Multisynq') at: 'Session'.
-    private MultisynqApp = (p js global at: 'Multisynq') at: 'App'.
+    private CroquetSession = (p js global at: 'Croquet') at: 'Session'.
+    private CroquetApp = (p js global at: 'Croquet') at: 'App'.
     private doc = p js global at: 'document'.
     public comments_slot
     
@@ -1488,66 +1488,92 @@ public class Comments = (
 public leave = (
 	croquetSession leave
 )
-modelSource = (
-	^'class CommentsModel extends Multisynq.Model {
-    	init() {
-        	this.comments = []
-            this.subscribe(this.sessionId, "new", this.onComment)
-        }
-        
-        onComment(data){
-        	this.comments.push(data)
-            this.publish(this.sessionId,"update")
-        }
-    }
-    return CommentsModel
-    '
+public connected = (
+	isConnected: true
 )
-public startup: theDocument <String> = (
-	| declaration options |
-	html.
-    declaration:: JSFunction new: modelSource.
-    commentsModel: declaration call. 
-    commentsModel register: 'Etiquette'.
-    declaration:: JSFunction new: viewSource.
-    commentsView: declaration call.
+html = (
+	| container comments nameInput commentInput commentBtn inputs heading h4 joinBtn leaveBtn namediv namelbl commentlbl commentdiv buttondiv commentsdiv |
+    container:: doc getElementById: 'comment-container'.
+    container isNil ifFalse: [ container remove ].
+    container:: doc createElement: 'div'. container at: 'id' put: 'comment-container'; at: 'className' put: 'container'.
+    (doc at: 'body') appendChild: container.
+		inputs:: doc createElement: 'div'. inputs at: 'id' put: 'inputs'. container appendChild: inputs.
+        namediv:: doc createElement: 'div'.
+        inputs appendChild: namediv.
+        
+        namelbl:: doc createElement: 'label'.
+        namelbl
+        at: 'for' put: 'nameInput';
+        at: 'innerText' put: 'Your Name';
+            at: 'style' put: 'font-size:small;padding-right:25px'.
+        namediv appendChild: namelbl.
 
-    options:: JSObject new
-        at: 'apiKey' put: '2uxfxxfqDCcdSY7qTNln84f9TexqFpFgX4BOk5rJs6';
-        at: 'appId' put: 'com.chalculator.etiquette';
-        at: 'name' put: theDocument; (* MultisynqApp autoSession; *)
-        at: 'password' put: theDocument; (* MultisynqApp autoPassword; *)
-        at: 'model' put: commentsModel;
-        at: 'view' put: commentsView;
-        yourself.
-    croquetSession:: MultisynqSession join: options.
-
+        nameInput:: doc createElement: 'textarea'.
+        nameInput
+        at: 'rows' put: 1; 
+        at: 'id' put: 'nameinput'. 
+        namediv appendChild: nameInput.
+			
+        commentdiv:: doc createElement: 'div'.
+        inputs appendChild: commentdiv.
+        commentlbl:: doc createElement: 'label'.
+        commentlbl
+            at: 'for' put: 'commentInput';
+            at: 'innerText' put: 'Your Comment';
+            at: 'style' put: 'font-size:small;padding-right:5px'.
+        commentdiv appendChild: commentlbl.
+        commentInput:: doc createElement: 'textarea'.
+        commentInput
+            at: 'rows' put: 5;
+            at: 'cols' put: 60;
+            at: 'id' put: 'commentinput'.
+        commentdiv appendChild: commentInput.
+            
+		buttondiv:: doc createElement: 'div'.
+        buttondiv at: 'style' put: 'padding-left:85px'.
+		inputs appendChild: buttondiv.
+		commentBtn:: doc createElement: 'button'.
+		commentBtn
+            at: 'id' put: 'commentate';
+            at: 'innerText' put: 'Comment';
+            at: 'className' put: 'btn-primary'.
+		buttondiv appendChild: commentBtn.
+		
+		commentsdiv:: doc createElement: 'div'.
+        commentsdiv at: 'style' put: 'padding-left:85px'.
+        container appendChild: commentsdiv.    
+        comments:: doc createElement: 'ol'. 
+        comments
+        	at: 'id' put: 'commentlist';
+            at: 'style' put: 'list-style-type:none'.
+        commentsdiv appendChild: comments.
 )
 public startup: theDocument <String> onConnect: blk <[]> = (
 	| declaration options |
 	html.
     declaration:: JSFunction new: modelSource.
     commentsModel: declaration call. 
-    commentsModel register: 'Etiquette'.
+    commentsModel register: 'CommentsModel'.
     
     declaration:: JSFunction new: viewSource.
     commentsView: declaration call.
     (commentsView at: 'prototype') at: 'onconnect' put: blk. (* Fingers croseed *)
     
     options:: JSObject new
-        at: 'apiKey' put: '2uxfxxfqDCcdSY7qTNln84f9TexqFpFgX4BOk5rJs6';
+    	at: 'box' put: '/synq';
+        at: 'apiKey' put: 'none';
         at: 'appId' put: 'com.chalculator.etiquette';
-        at: 'name' put: theDocument; (* MultisynqApp autoSession; *)
-        at: 'password' put: theDocument; (* MultisynqApp autoPassword; *)
+        at: 'name' put: theDocument;
+        at: 'password' put: theDocument;
         at: 'model' put: commentsModel;
         at: 'view' put: commentsView;
         yourself.
-    croquetSession:: MultisynqSession join: options.
+    croquetSession:: CroquetSession join: options.
 
 )
 viewSource = (
 	^'
-    	class CommentsView extends Multisynq.View {
+    	class CommentsView extends Croquet.View {
 			constructor(model){
             	super(model)
             	this.model = model
@@ -1617,65 +1643,41 @@ viewSource = (
     return CommentsView
     '
 )
-public connected = (
-	isConnected: true
-)
-html = (
-	| container comments nameInput commentInput commentBtn inputs heading h4 joinBtn leaveBtn namediv namelbl commentlbl commentdiv buttondiv commentsdiv |
-    container:: doc getElementById: 'comment-container'.
-    container isNil ifFalse: [ container remove ].
-    container:: doc createElement: 'div'. container at: 'id' put: 'comment-container'; at: 'className' put: 'container'.
-    (doc at: 'body') appendChild: container.
-		inputs:: doc createElement: 'div'. inputs at: 'id' put: 'inputs'. container appendChild: inputs.
-        namediv:: doc createElement: 'div'.
-        inputs appendChild: namediv.
+modelSource = (
+	^'class CommentsModel extends Croquet.Model {
+    	init() {
+        	this.comments = []
+            this.subscribe(this.sessionId, "new", this.onComment)
+        }
         
-        namelbl:: doc createElement: 'label'.
-        namelbl
-        at: 'for' put: 'nameInput';
-        at: 'innerText' put: 'Your Name';
-            at: 'style' put: 'font-size:small;padding-right:25px'.
-        namediv appendChild: namelbl.
+        onComment(data){
+        	this.comments.push(data)
+            this.publish(this.sessionId,"update")
+        }
+    }
+    return CommentsModel
+    '
+)
+public startup: theDocument <String> = (
+	| declaration options |
+	html.
+    declaration:: JSFunction new: modelSource.
+    commentsModel: declaration call. 
+    commentsModel register: 'CommentsModel'.
+    declaration:: JSFunction new: viewSource.
+    commentsView: declaration call.
 
-        nameInput:: doc createElement: 'textarea'.
-        nameInput
-        at: 'rows' put: 1; 
-        at: 'id' put: 'nameinput'. 
-        namediv appendChild: nameInput.
-			
-        commentdiv:: doc createElement: 'div'.
-        inputs appendChild: commentdiv.
-        commentlbl:: doc createElement: 'label'.
-        commentlbl
-            at: 'for' put: 'commentInput';
-            at: 'innerText' put: 'Your Comment';
-            at: 'style' put: 'font-size:small;padding-right:5px'.
-        commentdiv appendChild: commentlbl.
-        commentInput:: doc createElement: 'textarea'.
-        commentInput
-            at: 'rows' put: 5;
-            at: 'cols' put: 60;
-            at: 'id' put: 'commentinput'.
-        commentdiv appendChild: commentInput.
-            
-		buttondiv:: doc createElement: 'div'.
-        buttondiv at: 'style' put: 'padding-left:85px'.
-		inputs appendChild: buttondiv.
-		commentBtn:: doc createElement: 'button'.
-		commentBtn
-            at: 'id' put: 'commentate';
-            at: 'innerText' put: 'Comment';
-            at: 'className' put: 'btn-primary'.
-		buttondiv appendChild: commentBtn.
-		
-		commentsdiv:: doc createElement: 'div'.
-        commentsdiv at: 'style' put: 'padding-left:85px'.
-        container appendChild: commentsdiv.    
-        comments:: doc createElement: 'ol'. 
-        comments
-        	at: 'id' put: 'commentlist';
-            at: 'style' put: 'list-style-type:none'.
-        commentsdiv appendChild: comments.
+    options:: JSObject new
+    	at: #box put: '/synq';
+        at: #apiKey put: 'none';
+        at: #appId put: 'com.chalculator.etiquette';
+        at: #name put: theDocument; (* MultisynqApp autoSession; *)
+        at: #password put: theDocument; (* MultisynqApp autoPassword; *)
+        at: #model put: commentsModel;
+        at: #view put: commentsView;
+        yourself.
+    croquetSession:: CroquetSession join: options.
+
 )
 ) : (
 )

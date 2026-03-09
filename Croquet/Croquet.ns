@@ -2,7 +2,8 @@ Newspeak3
 'Root'
 class Croquet usingPlatform: platform = (
 	|
-    (* Hopscotch *)
+    List = platform collections List.
+    Map = platform collections Map.
     Presenter = platform hopscotch Presenter.
     Subject = platform hopscotch Subject.
 
@@ -11,8 +12,8 @@ class Croquet usingPlatform: platform = (
     JSObject = platform js global at: 'Object'.
 
     (* Croquet *)
-    MultisynqSession = (platform js global at: 'Multisynq') at: 'Session'.
-    MultisynqApp = (platform js global at: 'Multisynq') at: 'App'.
+    CroquetSession = (platform js global at: #Croquet) at: #Session.
+    CroquetApp = (platform js global at: #Croquet) at: #App.
 	|
 ) (
 public class CroquetSubject onModel: m withConfiguration: config
@@ -21,29 +22,19 @@ public class CroquetSubject onModel: m withConfiguration: config
                             withConfiguration: (CroquetConfiguration apiKey: 'xyz' appId: 'com.example.croquet' registerName: 'testmodel') *)
 = Subject onModel: m (
 	|
-	croquetModel_slot <Alien[Class]>
-	croquetView_slot <Alien[Class]>
     croquetSession <Alien>
     croquetSessionId <String>
     croquetInstance <Alien[Model]>
     configuration <CroquetConfiguration> = config.
 	|
 ) (
+lazy croquetModel = (JSFunction new: croquetModelSource) call.
+lazy croquetView = (JSFunction new: croquetViewSource) call.
 isMyKind: other = (
 	^other isKindOfCroquetSubject
 )
 public isKindOfCroquetSubject = (
 	^true
-)
-croquetModel ^<Alien[CroquetModel]> = (
-	croquetModel_slot isNil ifTrue: [ 
-    	croquetModel_slot:: (JSFunction new: croquetModelSource) call. ].
-	^croquetModel_slot
-)
-croquetView ^<Alien[CroquetView]>= (
-	croquetView_slot isNil ifTrue: [ 
-    	croquetView_slot:: (JSFunction new: croquetViewSource) call ].
-	^croquetView_slot
 )
 croquetModelSource ^<String> = (
 	^subclassResponsibility
@@ -63,19 +54,21 @@ public synq = (
     setup.
     croquetModel register: configuration registerName.    
     options
-        at: 'apiKey' put: configuration apiKey;
-        at: 'appId' put: configuration appId;
-        at: 'name' put: MultisynqApp autoSession;
-        at: 'password' put: MultisynqApp autoPassword;
-        at: 'model' put: croquetModel;
-        at: 'view' put: croquetView.
-	croquetSession:: MultisynqSession join: options.
+    	at: #box put: configuration box;
+        at: #apiKey put: configuration apiKey;
+        at: #appId put: configuration appId;
+        at: #name put: CroquetApp autoSession;
+        at: #password put: CroquetApp autoPassword;
+        at: #model put: croquetModel;
+        at: #view put: croquetView.
+	croquetSession:: CroquetSession join: options.
 )
 ) : (
 )
-public class CroquetConfiguration apiKey: key <String> appId: id <String> registerName: n <String>
+public class CroquetConfiguration box: b apiKey: key <String> appId: id <String> registerName: n <String>
 = (
 	|
+    public box = b.
 	public apiKey = key.
 	public appId = id.
     public registerName = n.
