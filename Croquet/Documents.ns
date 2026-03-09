@@ -77,7 +77,7 @@ Copyright Gilad Bracha 2022-2025
     private JSFunction = p js global at: 'Function'.
     private CroquetSession = (p js global at: 'Croquet') at: 'Session'.
     private CroquetApp = (p js global at: 'Croquet') at: 'App'.
-    private doc = p js global at: 'document'.
+    public doc = p js global at: 'document'.
     public comments_slot
     
     private ide = webIDE.
@@ -1491,63 +1491,6 @@ public leave = (
 public connected = (
 	isConnected: true
 )
-html = (
-	| container comments nameInput commentInput commentBtn inputs heading h4 joinBtn leaveBtn namediv namelbl commentlbl commentdiv buttondiv commentsdiv |
-    container:: doc getElementById: 'comment-container'.
-    container isNil ifFalse: [ container remove ].
-    container:: doc createElement: 'div'. container at: 'id' put: 'comment-container'; at: 'className' put: 'container'.
-    (doc at: 'body') appendChild: container.
-		inputs:: doc createElement: 'div'. inputs at: 'id' put: 'inputs'. container appendChild: inputs.
-        namediv:: doc createElement: 'div'.
-        inputs appendChild: namediv.
-        
-        namelbl:: doc createElement: 'label'.
-        namelbl
-        at: 'for' put: 'nameInput';
-        at: 'innerText' put: 'Your Name';
-            at: 'style' put: 'font-size:small;padding-right:25px'.
-        namediv appendChild: namelbl.
-
-        nameInput:: doc createElement: 'textarea'.
-        nameInput
-        at: 'rows' put: 1; 
-        at: 'id' put: 'nameinput'. 
-        namediv appendChild: nameInput.
-			
-        commentdiv:: doc createElement: 'div'.
-        inputs appendChild: commentdiv.
-        commentlbl:: doc createElement: 'label'.
-        commentlbl
-            at: 'for' put: 'commentInput';
-            at: 'innerText' put: 'Your Comment';
-            at: 'style' put: 'font-size:small;padding-right:5px'.
-        commentdiv appendChild: commentlbl.
-        commentInput:: doc createElement: 'textarea'.
-        commentInput
-            at: 'rows' put: 5;
-            at: 'cols' put: 60;
-            at: 'id' put: 'commentinput'.
-        commentdiv appendChild: commentInput.
-            
-		buttondiv:: doc createElement: 'div'.
-        buttondiv at: 'style' put: 'padding-left:85px'.
-		inputs appendChild: buttondiv.
-		commentBtn:: doc createElement: 'button'.
-		commentBtn
-            at: 'id' put: 'commentate';
-            at: 'innerText' put: 'Comment';
-            at: 'className' put: 'btn-primary'.
-		buttondiv appendChild: commentBtn.
-		
-		commentsdiv:: doc createElement: 'div'.
-        commentsdiv at: 'style' put: 'padding-left:85px'.
-        container appendChild: commentsdiv.    
-        comments:: doc createElement: 'ol'. 
-        comments
-        	at: 'id' put: 'commentlist';
-            at: 'style' put: 'list-style-type:none'.
-        commentsdiv appendChild: comments.
-)
 public startup: theDocument <String> onConnect: blk <[]> = (
 	| declaration options |
 	html.
@@ -1571,93 +1514,6 @@ public startup: theDocument <String> onConnect: blk <[]> = (
     croquetSession:: CroquetSession join: options.
 
 )
-viewSource = (
-	^'
-    	class CommentsView extends Croquet.View {
-			constructor(model){
-            	super(model)
-            	this.model = model
-                this.connected = false
-    			commentate.onclick = event => this.onCommentate(event)
-        		this.subscribe(this.model.sessionId,"update", this.onUpdate)
-                this.onconnect()
-                this.refresh()
-        	}
-        
-            refresh() {
-            	let li, guest, comment, commentlist, container, item
-                container = document.getElementById("comment-container")
-                
-                commentlist = document.getElementById("commentlist")
-                if (commentlist !== undefined) { commentlist.remove() }
-                commentlist = document.createElement("ol")
-                commentlist.setAttribute("id","commentlist")
-                commentlist.style.setProperty("list-style-type", "none")
-                commentlist.style.setProperty("font-family", "sans-serif")
-                container.appendChild(commentlist)
-                
-                for (const data of this.model.comments) {
-                	let vals = data.split(";")
-                    
-                	li = document.createElement("li")
-                    li.style.setProperty("margin-bottom", "10px")
-                    
-                	item = document.createElement("div")
-                    li.appendChild(item)
-                    
-                	guest=document.createElement("div")
-                	guest.innerText = "Comment By: " + vals[0]
-                    guest.style.setProperty("font-size","75%")
-                    guest.style.setProperty("font-weight","bold")
-                	item.appendChild(guest)
-                    
-                	comment = document.createElement("textarea")
-                    comment.setAttribute("rows",5)
-                    comment.setAttribute("cols",60)
-                    comment.setAttribute("diasbled","true")
-                	comment.innerText = vals[1]
-                	item.appendChild(comment)
-                    
-                	commentlist.appendChild(li)
-				}
-			}
-            
-            onCommentate(event) {
-            	let nameinput, commentinput, guest, comment, data
-                nameinput = document.getElementById("nameinput")
-                commentinput = document.getElementById("commentinput")
-                guest = nameinput.value
-                comment = commentinput.value
-                if ((guest === "") || (comment === "")) { return }
-            	this.publish(this.model.sessionId, "new", guest + ";" + comment)
-                commentate.setAttribute("disabled","true")
-                commentinput.value = ""
-                inputs.setAttribute("visibility", "hidden")
-            }
-
-			onUpdate(){
-            	this.refresh()
-			}
-            
-    }
-    return CommentsView
-    '
-)
-modelSource = (
-	^'class CommentsModel extends Croquet.Model {
-    	init() {
-        	this.comments = []
-            this.subscribe(this.sessionId, "new", this.onComment)
-        }
-        
-        onComment(data){
-        	this.comments.push(data)
-            this.publish(this.sessionId,"update")
-        }
-    }
-    return CommentsModel
-    '
-)
 public startup: theDocument <String> = (
 	| declaration options |
 	html.
@@ -1678,6 +1534,154 @@ public startup: theDocument <String> = (
         yourself.
     croquetSession:: CroquetSession join: options.
 
+)
+html = (
+	| container inputs namelbl nameInput commentlbl commentInput commentBtn comments  |
+    (* Remove existing *)
+    container:: doc getElementById: 'comment-container'.
+    container isNil ifFalse: [ container remove ].
+    
+    container:: doc createElement: 'div'.
+    container at: 'id' put: 'comment-container'; at: 'className' put: 'container'.
+    (doc at: 'body') appendChild: container.
+    
+    inputs:: doc createElement: 'div'.
+    inputs at: 'id' put: 'inputs'; at: 'style' put: 'padding-left: 40px'.
+    container appendChild: inputs.
+
+    namelbl:: doc createElement: 'label'.
+    namelbl at: 'for' put: 'nameinput'; at: 'innerText' put: 'Your Name'; at: 'style' put: 'font-size:small'.
+    inputs appendChild: namelbl.
+    inputs appendChild: (doc createElement: 'br').
+
+    nameInput:: doc createElement: 'textarea'.
+    nameInput at: 'rows' put: 1;  at: 'cols' put: 60; at: 'id' put: 'nameinput'. 
+    inputs appendChild: nameInput.
+    inputs appendChild: (doc createElement: 'br').
+
+    commentlbl:: doc createElement: 'label'.
+    commentlbl at: 'for' put: 'commentinput'; at: 'innerText' put: 'Your Comment'; at: 'style' put: 'font-size:small'.
+    inputs appendChild: commentlbl.
+    inputs appendChild: (doc createElement: 'br').
+
+    commentInput:: doc createElement: 'textarea'.
+    commentInput at: 'rows' put: 5; at: 'cols' put: 80; at: 'id' put: 'commentinput'.
+    inputs appendChild: commentInput.
+    inputs appendChild: (doc createElement: 'br').
+
+    commentBtn:: doc createElement: 'button'.
+    commentBtn at: 'id' put: 'commentate'; at: 'innerText' put: 'Comment'; at: 'className' put: 'btn-primary'.
+    inputs appendChild: commentBtn.
+    inputs appendChild: (doc createElement: 'hr').
+
+    comments:: doc createElement: 'ol'. 
+    comments at: 'id' put: 'commentlist'; at: 'style' put: 'list-style-type:none; margin-left: 85px'.
+    container appendChild: comments.
+)
+viewSource = (
+	^'
+    	class CommentsView extends Croquet.View {
+			constructor(model){
+            	super(model)
+            	this.model = model
+                this.connected = false
+    			commentate.onclick = event => this.onCommentate(event)
+        		this.subscribe(this.model.sessionId,"update", this.onUpdate)
+                this.onconnect()
+                this.refresh()
+        	}
+        
+            refresh() {
+            	let li, guest, comment, commentlist, container, item, commentDate
+                container = document.getElementById("comment-container")
+                
+                commentlist = document.getElementById("commentlist")
+                if (commentlist !== undefined) { commentlist.remove() }
+                commentlist = document.createElement("ol")
+                commentlist.setAttribute("id","commentlist")
+                commentlist.style.setProperty("list-style-type", "none")
+                commentlist.style.setProperty("font-family", "sans-serif")
+                container.appendChild(commentlist)
+                
+                for (const data of this.model.comments) {
+                    
+                	li = document.createElement("li")
+                    li.style.setProperty("margin-bottom", "10px")
+                    li.style.setProperty("width","50%")
+                    
+                	item = document.createElement("div")
+                    li.appendChild(item)
+                    
+                	guest=document.createElement("div")
+                	guest.innerText = "Comment By: " + data["name"]
+                    guest.style.setProperty("font-size","75%")
+                    guest.style.setProperty("font-weight","bold")
+                	item.appendChild(guest)
+                    
+                    commentDate = document.createElement("div")
+                    commentDate.style.setProperty("float","right")
+                    commentDate.style.setProperty("overflow-x","clip")
+                    commentDate.style.setProperty("text-wrap","nowrap")
+                    commentDate.innerText = "Date: " + data["date"]
+                    guest.appendChild(commentDate)
+                    
+                	comment = document.createElement("textarea")
+                    comment.setAttribute("rows",5)
+                    comment.setAttribute("cols",80)
+                    comment.setAttribute("diasbled","true")
+                	comment.innerText = data["comment"]
+                	item.appendChild(comment)
+                    
+                	commentlist.appendChild(li)
+				}
+			}
+            
+            onCommentate(event) {
+            	let nameinput, commentinput, guest, comment, data
+                nameinput = document.getElementById("nameinput")
+                commentinput = document.getElementById("commentinput")
+                guest = nameinput.value
+                comment = commentinput.value
+                if ((guest === "") || (comment === "")) { return }
+            	this.publish(this.model.sessionId, "new",
+                                    {"name": guest, "comment":	comment, "date": Temporal.Now.plainDateTimeISO().toString() })
+                commentate.setAttribute("disabled","true")
+                commentinput.value = ""
+                inputs.setAttribute("visibility", "hidden")
+            }
+
+			onUpdate(){
+            	this.refresh()
+			}
+            
+    }
+    return CommentsView
+    '
+)
+modelSource = (
+	^'class CommentsModel extends Croquet.Model {
+    	init(options,persisted) {
+        	this.comments = [] 
+        	if (persisted) {
+            	for (const data of persisted) {
+                	try {
+                    	const vals = data.split(";")
+                    	this.comments.push({"name":vals[0], "comment":vals[1],"date": Temporal.Now.plainDateTimeISO().toString() })
+                    } catch(e) {
+                    	this.comments.push(data)
+                    }
+                }
+            }
+            this.subscribe(this.sessionId, "new", this.onComment)
+        }
+        
+        onComment(data){
+        	this.comments.push(data)
+            this.publish(this.sessionId,"update")
+        }
+    }
+    return CommentsModel
+    '
 )
 ) : (
 )
