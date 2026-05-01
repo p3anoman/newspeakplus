@@ -1,0 +1,324 @@
+Newspeak3
+'Root'
+public class IndexedDBforJS usingPlatform: p = (
+	|
+		(* :exemplar: IndexedDBforJS usingPlatform: platform *)
+        (*
+        	Implements the browser API of the same name.
+			Copyright 2024 John McKeon.
+            MIT License. Use at your own risk.
+    	*)
+    private List <List> = p collections List.
+    private ObjectMirror <ObjectMirror> = p mirrors ObjectMirror.
+    private ClassMirror <ClassMirror> = p mirrors ClassMirror.
+	private Subject <Subject> = p hopscotch Subject.
+
+	private JSObject <Alien[Object]> = p js global at: 'Object'.
+    private JSMap <Alien[Map]> = p js global at: 'Map'.
+    private JSArray <Alien[Array]> = p js global at: 'Array'.
+    private JSUint8Array <Alien[Uint8Array]> = p js global at: 'Uint8Array'.
+    private JSBlob <Alien[Blob]> = p js global at: 'Blob'.
+    private JSPromise <Alien[Promise]> = p js global at: 'Promise'.
+    private crypto <Alien[Crypto]> = p js global at: 'crypto'.
+
+    private Alien = p js Alien.
+
+	(* The browser's IndexedDB API object *)
+    private indexedDB <Alien[IndexedDB]> = p js global at: 'indexedDB'.
+	|
+) (
+public class IDBObject new = (
+	| public uuid = crypto randomUUID. |
+) (
+public isKindOfIDBObject = (
+	^true
+)
+public serializeAliens ^<Map[String[Alien]]> = (
+	|
+    om = ObjectMirror reflecting: self.
+    cm = om getClass.
+    map = JSMap new.
+    |
+    cm slots do: [ :slot <SlotDeclarationMirror> |
+    	| v <Alien|IDBObject|List> |
+    	v:: (om getSlot: slot name) reflectee.
+        v isKindOfJSAlien
+        	ifTrue: [ map set: slot name with: v. ]
+            ifFalse: [
+            	v isKindOfIDBObject
+                	ifTrue: [ map set: slot name to: v serializeAliens ]
+                    ifFalse: [
+                    	v isKindOfList ifTrue: [
+                            | array = JSArray new. |
+                            v do: [ :item | item isKindOfIDBObject ifTrue: [ array push: item serializeAliens ] ].
+							map set: slot name to: array ] ] ] ].
+	^map
+)
+public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[Array]]]> = (
+    |
+    om <ObjectMirror> = ObjectMirror reflecting: self.
+    keys <Alien[Iterator]> = map keys.
+    key <String>
+    val <Alien[JSArray|JSMap|JSObject]>
+    kit <Alien[Iteration]>
+    |
+    [ (kit:: keys next) at: 'done' ] whileFalse: [
+    	key:: kit at: 'value'.
+        val:: map get: key.
+        (val instanceOf: JSArray)
+        	ifTrue: [
+            	| n <Integer> = val at: 'length'. list <List[IDBObject]> = (om getSlot: key) reflectee. |
+            	1 to: n do: [ :i <Integer> | (list at: i) reconstituteAliens: (val at: (i - 1)) ]]
+            ifFalse: [ (val instanceOf: JSMap)
+            	ifTrue: [ (om getSlot: key) reflectee reconstituteAliens: val ]
+                ifFalse: [ om setSlot: key to: val ]
+			].
+		nil
+	]
+)
+) : (
+)
+public class IDBSubject onModel: m <Object>
+										storeClasses: sc <Array[Class[IDBObject]]>
+										modelClasses: mc <Array[Class[IDBObject]]>
+                                        databaseName: n <String>
+                                        databaseVersion: v <Integer>
+(* :exemplar_1: [
+	|
+    Klass = ClassDeclarationBuilder fromSource: 'public class ApplicationModel = (| public version ::= 1. |)()'.
+    ModelKlass = ClassDeclarationBuilder fromSource: 'class IDBObjectClass = (| public slot1 ::= 'dummy'. public slot2 ::= 'foo'. |)()'.
+    |
+    Klass install.
+    ModelKlass install.
+	IDBSubject onModel: ApplicationModel new modelClasses: { IDBObjectClass } databaseName: 'TestDB' databaseVersion: 1984 ] value
+*)
+(*
+	IDBSubject is the main "driver" class for IndexedDB opeerations.
+    Inputs:
+    	onModel: This is the typical application model. Note that this should not be included in the modelClasses list.
+        storeClasses: Classes for which an IDBObjectStore will be created.
+        modelClasses: Child expected to be serialized
+		databaseName: The name of the database.
+        databaseVersion: Whenever the version changes, the onUpgradeNeeded event is fired
+*)
+= Subject onModel: m (
+	|
+ 	(* The connection to the application's database *)
+ 	public db <Alien[IDBDatabase]>
+    private stores = List new addAll: sc.
+ 	public models = List new addAll: mc.
+    public databaseName = n.
+    public databaseVersion = v.
+	|
+    models addAll: sc; add: Alien; yourself.
+) (
+put: o <IDBObject> = (
+	put: o onComplete: [ :e | ] onError: [ :e | ]
+)
+onAdd: event  <Alien[Event]> = (
+	(* 'Success' out. *)
+)
+public openDB = (
+	openDB: databaseVersion.
+)
+onGetAll: r <List[IDBObject]> = (
+	'onGetAll triggered' out.
+)
+onPut: event  <Alien[Event]> = (
+	'onPut triggered' out.
+)
+onGet: o <IDBObject> = (
+	'onGet triggered' out.
+)
+onDelete: o <IDBObject> = (
+	'onDelete triggered' out.
+)
+onGetKeys: keys = (
+	'onGetKeys: triggered' out.
+)
+add: o <IDBObject> = (
+	add: o onComplete: [ :e | nil ] onError: [ :e | nil ]
+)
+delete: o <IDBObject> = (
+	delete: o onComplete: [ :e | nil ] onError: [ :e | nil ]
+)
+get: uuid <UUID|String> forClass: class <Class[IDBObject]> = (
+	get: uuid forClass: class onComplete: [ :e | nil ] onError: [ :e | nil ]
+)
+getAll: class <Class[IDBObject]>  = (
+	getAll: class onComplete: [ :e | nil ] onError: [ :e | nil ]
+)
+getKeys: class <Class[IDBObject]> = (
+	getKeys: class onComplete: [ :e | nil ] onError: [ :e | nil ]
+)
+public openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> = (
+	openDB: version onSuccess: successHandler onFailure: [ :ex | nil ]
+)
+public openDB: version <Integer> onSuccess: successHandler <[:Alien[Event]]> onFailure: failureHandler <[:Alien[Event]]> = (
+	|
+	request <Alien[IDBOpenRequest]>	= indexedDB open: databaseName version: version.
+    |
+    request addEventListener: 'upgradeneeded' with: [ :e <Alien[Event]> | onUpgradeNeeded: e. nil ].
+    request addEventListener: 'blocked' with: [ :e <Alien[Event]> | onBlocked: e. nil ].
+    request addEventListener: 'success' with: [ :e <Alien[Event]> |  successHandler value: e. nil ].
+    request addEventListener: 'error' with: [ :e <Alien[Event]> | failureHandler value: e. nil ].
+	'IDBSubject openDB called' out.
+)
+public openDB: version <Integer> = (
+	openDB: version onSuccess: [ :e | onOpen: e. nil ].
+)
+private blobFromBytes: bytes = (
+	|
+    ui8 <Alien[Uint8Array]> = JSUint8Array new: bytes size.
+    blobParts <Alien[Array]> = JSArray new.
+	options <Alien[Object]> = JSObject new.
+    |
+	1 to: bytes size do: [ :i | ui8 at: (i - 1) put: (bytes at: i) ].
+    blobParts at: 0 put: ui8.
+    options at: 'type' put: 'application/octet-stream'.
+	^JSBlob new: blobParts with: options.
+)
+put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
+	|
+    storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
+    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+    req <Alien[IDBRequest]> = store put: (serialize: o) key: o uuid.
+    |
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> | onPut: e. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
+)
+getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject]]> onError: errorHandler <[:Error]> = (
+		|
+        storeName <String> = class name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBOpenRequest]> = store getAll.
+        |
+		req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+        	|
+            objs <Alien[Array[Alien[Blob]]]> = (e at: 'target') at: 'result'.
+            n <Integer> = objs at: 'length'.
+            promises <Alien[Array[Alien[Promise]]]> = JSArray new: n.
+            results <List[IDBObject]> = List new.
+            |
+    		0 to: (n - 1) do: [ :i <Integer> | promises at: i put: ((objs at: i) at: 'psoup') arrayBuffer ]. 	  (* async *)
+			(JSPromise all: promises)
+            	then: [ :buffers <Alien[Array[Alien[ArrayBuffer]]]> |													(* resolve *)
+					0 to: (n - 1) do: [ :j <Integer> | results add: (deserialize: (buffers at: j)) ].
+                    1 to: n do: [ :i <Integer> | (results at: i) reconstituteAliens: ((objs at: (i - 1)) at: 'aliens') ].
+                  	onGetAll: results.
+                  	nil ]
+				onError: [ :ex <Error> | ex signal: ('Failed to load data: ', ex messageText). nil ]. 				(* reject *)
+			nil.
+		].
+   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
+)
+delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
+	|
+	storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    |
+	tx:: db transaction: storeName for: 'readwrite'.
+    store:: tx objectStore: storeName.
+    req:: store delete: o uuid.
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+    	| uuid  = (e at: 'target') at: 'result'. |
+    	onDelete: uuid. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
+)
+get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
+		|
+        storeName = (ClassMirror reflecting: class) mixin name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBRequeste]> = store get: uuid.
+        |
+    	req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+            | jso <Alien[Blob]> = (e at: 'target') at: 'result'. |
+            (jso at: 'psoup') arrayBuffer then: [ :buffer <Alien[ArrayBuffer]> |
+            	| o <IDBObject> = deserialize: buffer. |
+                o reconstituteAliens: (jso at: 'aliens').
+            	onGet: o.
+            	nil
+            ] onError: [ :ex | failureHandler value:  'Error loading data: ', ex printString. nil].
+            nil
+		].
+   		tx addEventListener: 'complete' handler: [ :e <Event> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
+)
+getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]> onError: errorHandler <[:Alien[Event]]>= (
+		|
+        storeName <String> = (ClassMirror reflecting: class) mixin name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBRequeste]> = store getAllKeys.
+        |
+    	req addEventListener: 'success' handler: [ :e <Event> |
+			|
+            a <Alien[Array[String]]> = (e at: 'target') at: 'result'.
+        	r <List[String]> = List new.
+            |
+      		1 to: (a at: 'length') do: [ :i <Integer> | r add: (a at: (i - 1)) ].
+        	onGetKeys: r.
+            nil
+        ].
+   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
+)
+onUpgradeNeeded: event <Alien[Event]> = (
+	(* The default handler for the 'upgradeneeded' event generated on version change. *)
+    (* This default 'Version 1' creates the required IDBObjectStores for storeClasses array *)
+    db::  (event at: #target) at: #result.
+    stores do: [ :klass | db createObjectStore: klass name ].
+    'upgradeneeded triggered' out.
+)
+serialize: o <IDBObject>^<Alien[Object]> = (
+	|
+    serializer <Serializer> = Serializer withAdditionalSharedObjects: models.
+    result <Alien[Object]> = JSObject new.
+    |
+    result at: 'psoup' put: (blobFromBytes: (serializer serialize: o)).
+	result at: 'aliens' put: o serializeAliens.
+    ^result
+)
+deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
+		|
+        deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: models.
+        ui8 <Alien[Uint8Array]> = JSUint8Array new: buffer.
+        n <Integer> = ui8 at: 'length'.
+        bytes <ByteArray> = ByteArray new: n.
+        |
+        1 to: n do: [ :i <Integer> | bytes at: i put: (ui8 at: (i - 1)) ].
+        ^deserializer deserialize: bytes.
+)
+onOpen: event <Alien[Event]> = (
+	'onOpen DB called' out.
+    db:: (event at: #target) at: #result.
+    stores do: [ :k | getAll: k ].
+)
+add: o <IDBObject> onComplete: completeHandler <[:e]> onError: errorHandler <[:e]> = (
+	|
+    storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
+    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+    req <Alien[IDBRequest]> = store add: (serialize: o) key: o uuid.
+    |
+    req addEventListener: 'success' handler: [ :e |
+    	| uuid  = (e at: 'target') at: 'result'. |
+    	onAdd: uuid.
+        nil ].
+    tx addEventListener: 'complete' handler: completeHandler.
+    tx addEventListener: 'error' handler: errorHandler.
+)
+onBlocked: e <Alien[Event]> = (
+)
+) : (
+)
+) : (
+)

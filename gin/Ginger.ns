@@ -7,14 +7,11 @@ class Ginger packageUsing: manifest = (
 ) (
 public main: platform args: args = (
 	|
-    g = GIN usingPlatform: platform.
-    s = g GINSubject onModel: g.
+    g = GIN usingPlatform: platform language: 'en'.
+    s = g GINSubject onModel: nil.
     tmp
     |
-    g getTranslator: [ :t | 'Waiting for translator...' out. tmp: t.
-    	tmp out.
-    	(* s translate: 'Hello World'. *)
-	platform hopscotch HopscotchWindow openSubject: s. ]
+	platform hopscotch HopscotchWindow openSubject: s
 )
 ) : (
 )

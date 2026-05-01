@@ -1,0 +1,13 @@
+Newspeak3
+'Root'
+class CroquetTestingConfiguration packageTestsUsing: manifest = (
+	|
+	CroquetTesting = manifest CroquetTesting.
+	Croquet = manifest Croquet.
+	|
+) (
+public testModulesUsingPlatform: p minitest: m = (
+	^{CroquetTesting usingPlatform: p testFramework: m croquet: (Croquet usingPlatform: p) }
+)
+) : (
+)

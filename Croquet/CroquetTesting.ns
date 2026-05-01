@@ -1,0 +1,58 @@
+Newspeak3
+'Root'
+class CroquetTesting
+						usingPlatform: p 
+                        testFramework: minitest 
+                        croquet: c = (
+	|
+    List = p collections List.
+	TestContext = minitest TestContext.
+	CroquetSubject = c CroquetSubject.
+    CroquetConfiguration = c CroquetConfiguration.
+	|
+) (
+class CroquetHarness = (
+	|
+    config = CroquetConfiguration box: '/synq' apiKey: '2uxfxxfqDCcdSY7qTNln84f9TexqFpFgX4BOk5rJs6' appId: 'com.croquet.tests' registerName: 'TestModel'.
+	subject = TestSubject onModel: List new config: config.
+	|
+) (
+class SubscriptionTests = TestContext (
+) (
+) : (
+TEST_CONTEXT = (
+)
+)
+class SessionTests = TestContext (
+	|
+	session
+	|
+) (
+) : (
+TEST_CONTEXT = (
+)
+)
+) : (
+)
+class TestSubject onModel: m configuration: config = CroquetSubject onModel: m configuration: config (
+) (
+modelSource = (
+	^'class TestModel extends Croquet.Model {
+    	init(options, persist) {
+        	this.subscribe(this.sessionId, "testEvent", this.doTest)
+        }
+    }
+    return TestModel'
+)
+viewSource = (
+	^'class TestView extends Croquet.View {
+    	constructor(model) {
+        	this.subscribe(this.sessionId, "testViewEvent", this.doTestView)
+        }
+    }
+    return TestView'
+)
+) : (
+)
+) : (
+)

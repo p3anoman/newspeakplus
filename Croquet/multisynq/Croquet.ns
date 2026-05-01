@@ -12,9 +12,11 @@ class Croquet usingPlatform: platform = (
     JSObject = platform js global at: 'Object'.
 
     (* Croquet *)
-    CroquetSession = (platform js global at: #Croquet) at: #Session.
-    CroquetApp = (platform js global at: #Croquet) at: #App.
+    CroquetSession
+    CroquetApp
 	|
+	loadCroquetInDocument: (platform js global at: 'document').
+    connectCroquetToPlatform: platform
 ) (
 public class CroquetSubject onModel: m withConfiguration: config
 (* :exemplar: CroquetSubject
@@ -22,12 +24,12 @@ public class CroquetSubject onModel: m withConfiguration: config
                             withConfiguration: (CroquetConfiguration apiKey: 'xyz' appId: 'com.example.croquet' registerName: 'testmodel') *)
 = Subject onModel: m (
 	|
+	croquetModel_slot <Alien[Class]>
+	croquetView_slot <Alien[Class]>
     croquetSession <Alien>
     croquetSessionId <String>
     croquetInstance <Alien[Model]>
     configuration <CroquetConfiguration> = config.
-    croquetModel_slot
-    croquetView_slot
 	|
 ) (
 isMyKind: other = (
@@ -35,6 +37,16 @@ isMyKind: other = (
 )
 public isKindOfCroquetSubject = (
 	^true
+)
+croquetModel ^<Alien[CroquetModel]> = (
+	croquetModel_slot isNil ifTrue: [ 
+    	croquetModel_slot:: (JSFunction new: croquetModelSource) call. ].
+	^croquetModel_slot
+)
+croquetView ^<Alien[CroquetView]>= (
+	croquetView_slot isNil ifTrue: [ 
+    	croquetView_slot:: (JSFunction new: croquetViewSource) call ].
+	^croquetView_slot
 )
 croquetModelSource ^<String> = (
 	^subclassResponsibility
@@ -49,23 +61,10 @@ croquetViewSource ^<String> = (
 setup = (
 	(* Your application should override this method to install callback handlers into Newspeak *)
 )
-croquetView = (
-	croquetView_slot isNil ifTrue: [ | f = JSFunction new: croquetViewSource. | croquetView_slot: f call ].
-    ^croquetView_slot
-)
-croquetModel = (
-	croquetModel_slot isNil ifTrue: [
-    	|
-        f = JSFunction new: croquetModelSource.
-        m = f call.
-        | 
-        croquetModel_slot: m ].
-    ^croquetModel_slot
-)
 public synq = (
 	| options = JSObject new. |
     setup.
-    (*croquetModel register: configuration registerName. *)   
+    croquetModel register: configuration registerName.    
     options
     	at: #box put: configuration box;
         at: #apiKey put: configuration apiKey;
@@ -88,6 +87,33 @@ public class CroquetConfiguration box: b apiKey: key <String> appId: id <String>
 	|
 ) (
 ) : (
+)
+loadCroquetLibrary = (
+	| croquet = document createElement: #script. body = document at: #body. |
+    croquet
+    	at: #src put: 'https://cdn.jsdelivr.net/npm/@multisynq/client@latest/bundled/multisynq-client.min.js';
+    	(* at: #src put: 'https://unpkg.com/@croquet/croquet@2.0.4'; *)
+    	at: #id put: 'croquet-src';
+        at: #type put: 'text/javascript'.
+    body appendChild: croquet.
+)
+loadCroquetInDocument: document = (
+	| croquet body |
+     (document querySelector: '#croquet-src') = nil ifFalse: [ ^self ].
+    croquet:: document createElement: #script.
+    body:: document at: #body.
+    croquet
+    	at: #src put: 'https://cdn.jsdelivr.net/npm/@multisynq/client@latest/bundled/multisynq-client.min.js';
+    	(* at: #src put: 'https://unpkg.com/@croquet/croquet@2.0.4'; *)
+    	at: #id put: 'croquet-src';
+        at: #type put: 'text/javascript'.
+    body appendChild: croquet.
+)
+connectCroquetToPlatform: platform = (
+	| multisynq = platform js global at: 'Multisynq'. |
+    assert: [ nil ~= multisynq ] message: 'no multisynq'.
+	CroquetSession::  multisynq at: 'Session'.
+    CroquetApp:: multisynq at: 'App'.
 )
 ) : (
 )
