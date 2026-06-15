@@ -79,6 +79,9 @@ public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[
 		nil
 	]
 )
+public id ^<[valueGenerator]>= (
+	^[ uuid ]
+)
 ) : (
 )
 public class IDBSubject onModel: m <Object>
@@ -123,9 +126,6 @@ onAdd: event  <Alien[Event]> = (
 )
 public openDB = (
 	openDB: databaseVersion.
-)
-onGetAll: r <List[IDBObject]> = (
-	'onGetAll triggered' out.
 )
 onPut: event  <Alien[Event]> = (
 	'onPut triggered' out.
@@ -181,60 +181,6 @@ private blobFromBytes: bytes = (
     options at: 'type' put: 'application/octet-stream'.
 	^JSBlob new: blobParts with: options.
 )
-put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
-	|
-    storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
-    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-    req <Alien[IDBRequest]> = store put: (serialize: o) key: o uuid.
-    |
-    req addEventListener: 'success' handler: [ :e <Alien[Event]> | onPut: e. nil ].
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
-)
-getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject]]> onError: errorHandler <[:Error]> = (
-		|
-        storeName <String> = class name.
-        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
-        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-        req <Alien[IDBOpenRequest]> = store getAll.
-        |
-		req addEventListener: 'success' handler: [ :e <Alien[Event]> |
-        	|
-            objs <Alien[Array[Alien[Blob]]]> = (e at: 'target') at: 'result'.
-            n <Integer> = objs at: 'length'.
-            promises <Alien[Array[Alien[Promise]]]> = JSArray new: n.
-            results <List[IDBObject]> = List new.
-            |
-    		0 to: (n - 1) do: [ :i <Integer> | promises at: i put: ((objs at: i) at: 'psoup') arrayBuffer ]. 	  (* async *)
-			(JSPromise all: promises)
-            	then: [ :buffers <Alien[Array[Alien[ArrayBuffer]]]> |													(* resolve *)
-					0 to: (n - 1) do: [ :j <Integer> | results add: (deserialize: (buffers at: j)) ].
-                    1 to: n do: [ :i <Integer> | (results at: i) reconstituteAliens: ((objs at: (i - 1)) at: 'aliens') ].
-                  	onGetAll: results.
-                  	nil ]
-				onError: [ :ex <Error> | ex signal: ('Failed to load data: ', ex messageText). nil ]. 				(* reject *)
-			nil.
-		].
-   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
-   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
-)
-delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
-	|
-	storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
-    tx <Alien[IDBTransaction]>
-    store <Alien[IDBObjectStore]>
-    req <Alien[IDBRequest]>
-    |
-	tx:: db transaction: storeName for: 'readwrite'.
-    store:: tx objectStore: storeName.
-    req:: store delete: o uuid.
-    req addEventListener: 'success' handler: [ :e <Alien[Event]> |
-    	| uuid  = (e at: 'target') at: 'result'. |
-    	onDelete: uuid. nil ].
-    tx addEventListener: 'complete' handler: completeBlock.
-    tx addEventListener: 'error' handler: errorBlock.
-)
 get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandler <[:IDBObject]> onError: errorHandler <[:Error]> = (
 		|
         storeName = (ClassMirror reflecting: class) mixin name.
@@ -254,25 +200,6 @@ get: uuid <UUID> forClass: class <Class[IDBObject]> onComplete: completionHandle
 		].
    		tx addEventListener: 'complete' handler: [ :e <Event> | completionHandler value: e. nil ].
    		tx addEventListener: 'error' handler: [ :e <Event> | errorHandler value: e. nil ].
-)
-getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]> onError: errorHandler <[:Alien[Event]]>= (
-		|
-        storeName <String> = (ClassMirror reflecting: class) mixin name.
-        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
-        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-        req <Alien[IDBRequeste]> = store getAllKeys.
-        |
-    	req addEventListener: 'success' handler: [ :e <Event> |
-			|
-            a <Alien[Array[String]]> = (e at: 'target') at: 'result'.
-        	r <List[String]> = List new.
-            |
-      		1 to: (a at: 'length') do: [ :i <Integer> | r add: (a at: (i - 1)) ].
-        	onGetKeys: r.
-            nil
-        ].
-   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
-   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
 onUpgradeNeeded: event <Alien[Event]> = (
 	(* The default handler for the 'upgradeneeded' event generated on version change. *)
@@ -305,12 +232,69 @@ onOpen: event <Alien[Event]> = (
     db:: (event at: #target) at: #result.
     stores do: [ :k | getAll: k ].
 )
+onBlocked: e <Alien[Event]> = (
+)
+getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject]]> onError: errorHandler <[:Error]> = (
+		|
+        storeName <String> = class name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBOpenRequest]> = store getAll.
+        |
+		req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+        	|
+            objs <Alien[Array[Alien[Blob]]]> = (e at: 'target') at: 'result'.
+            n <Integer> = objs at: 'length'.
+            promises <Alien[Array[Alien[Promise]]]> = JSArray new: n.
+            results <List[IDBObject]> = List new.
+            |
+    		0 to: (n - 1) do: [ :i <Integer> | promises at: i put: ((objs at: i) at: 'psoup') arrayBuffer ]. 	  (* async *)
+			(JSPromise all: promises)
+            	then: [ :buffers <Alien[Array[Alien[ArrayBuffer]]]> |													(* resolve *)
+					0 to: (n - 1) do: [ :j <Integer> | results add: (deserialize: (buffers at: j)) ].
+                    1 to: n do: [ :i <Integer> | (results at: i) reconstituteAliens: ((objs at: (i - 1)) at: 'aliens') ].
+                  	onGetAll: results forClass: class.
+                  	nil ]
+				onError: [ :ex <Error> | ex signal: ('Failed to load data: ', ex messageText). nil ]. 				(* reject *)
+			nil.
+		].
+   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
+)
+onGetAll: r <List[IDBObject]> forClass: aClass <Class> = (
+	'onGetAll:forClass: triggered' out.
+)
+getKeys: class <Class[IDBObject]> onComplete: completionHandler <[:Alien[Event]]> onError: errorHandler <[:Alien[Event]]>= (
+		|
+        storeName <String> = (ClassMirror reflecting: class) mixin name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBRequeste]> = store getAllKeys.
+        |
+    	req addEventListener: 'success' handler: [ :e <Event> |
+			|
+            a <Alien[Array[String]]> = (e at: 'target') at: 'result'.
+        	r <List[String]> = List new.
+            |
+      		1 to: (a at: 'length') do: [ :i <Integer> | r add: (a at: (i - 1)) ].
+        	onGetKeys: r forClass: class.
+            nil
+        ].
+   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
+)
+save: o = (
+	| m = ObjectMirror reflecting: o.  slot = m getLazySlot: 'uuid'. |
+    slot reflectee isNil
+    	ifTrue: [ add: o ]
+        ifFalse: [ put: o ]
+)
 add: o <IDBObject> onComplete: completeHandler <[:e]> onError: errorHandler <[:e]> = (
 	|
     storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
     tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
     store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-    req <Alien[IDBRequest]> = store add: (serialize: o) key: o uuid.
+    req <Alien[IDBRequest]> = store add: (serialize: o) key: o id value.
     |
     req addEventListener: 'success' handler: [ :e |
     	| uuid  = (e at: 'target') at: 'result'. |
@@ -319,7 +303,32 @@ add: o <IDBObject> onComplete: completeHandler <[:e]> onError: errorHandler <[:e
     tx addEventListener: 'complete' handler: completeHandler.
     tx addEventListener: 'error' handler: errorHandler.
 )
-onBlocked: e <Alien[Event]> = (
+delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <Closure> = (
+	|
+	storeName <String> = (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]>
+    store <Alien[IDBObjectStore]>
+    req <Alien[IDBRequest]>
+    |
+	tx:: db transaction: storeName for: 'readwrite'.
+    store:: tx objectStore: storeName.
+    req:: store delete: o uuid.
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+    	| uuid  = (e at: 'target') at: 'result'. |
+    	onDelete: id value. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
+)
+put: o <IDBObject> onComplete: completeBlock onError: errorBlock = (
+	|
+    storeName <String> =  (ObjectMirror reflecting: o) getClass mixin name.
+    tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readwrite'.
+    store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+    req <Alien[IDBRequest]> = store put: (serialize: o) key: o id value.
+    |
+    req addEventListener: 'success' handler: [ :e <Alien[Event]> | onPut: e. nil ].
+    tx addEventListener: 'complete' handler: completeBlock.
+    tx addEventListener: 'error' handler: errorBlock.
 )
 ) : (
 )
