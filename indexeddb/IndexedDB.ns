@@ -36,27 +36,6 @@ public class IDBObject new = (
 public isKindOfIDBObject = (
 	^true
 )
-public serializeAliens ^<Map[String[Alien]]> = (
-	|
-    om = ObjectMirror reflecting: self.
-    cm = om getClass.
-    map = JSMap new.
-    |
-    cm slots do: [ :slot <SlotDeclarationMirror> |
-    	| v <Alien|Object|List> |
-    	v:: (om getSlot: slot name) reflectee.
-        v isKindOfJSAlien
-        	ifTrue: [ ('serializeAliens: setting ', slot name, ' to ', v printString) out. map set: slot name with: v. ]
-            ifFalse: [
-            	v isKindOfIDBObject
-                	ifTrue: [ map set: slot name to: v serializeAliens ]
-                    ifFalse: [
-                    	v isKindOfList ifTrue: [
-                            | array = JSArray new. |
-                            v do: [ :item | item isKindOfIDBObject ifTrue: [ array push: item serializeAliens ] ].
-							map set: slot name to: array ] ] ] ].
-	^map
-)
 public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[Array]]]> = (
     |
     om <ObjectMirror> = ObjectMirror reflecting: self.
@@ -82,6 +61,27 @@ public reconstituteAliens: map <Alien[Map[String,Alien[Object]|Alien[Map]|Alien[
 public id ^<[valueGenerator]>= (
 	^[ uuid ]
 )
+public serializeAliens ^<Map[String[Alien]]> = (
+	|
+    om = ObjectMirror reflecting: self.
+    cm = om getClass.
+    map = JSMap new.
+    |
+    cm slots do: [ :slot <SlotDeclarationMirror> |
+    	| v <Alien|Object|List> |
+    	v:: (om getSlot: slot name) reflectee.
+        v isKindOfJSAlien
+        	ifTrue: [ ('serializeAliens: setting ', slot name, ' to ', v printString) out. map set: slot name with: v. ]
+            ifFalse: [
+            	v isKindOfIDBObject
+                	ifTrue: [ map set: slot name to: v serializeAliens ]
+                    ifFalse: [
+                    	v isKindOfList ifTrue: [
+                            | array = JSArray new. |
+                            v do: [ :item | item isKindOfIDBObject ifTrue: [ array push: item serializeAliens ] ].
+							map set: slot name to: array ] ] ] ].
+	^map
+)
 ) : (
 )
 public class IDBSubject onModel: m <Object>
@@ -89,6 +89,7 @@ public class IDBSubject onModel: m <Object>
 										modelClasses: mc <Array[Class[IDBObject]]>
                                         databaseName: n <String>
                                         databaseVersion: v <Integer>
+                                        useAliens: b <Boolean>
 (* :exemplar_1: [
 	| 
     Klass = ClassDeclarationBuilder fromSource: 'public class ApplicationModel = (| public version ::= 1. |)()'.
@@ -96,7 +97,12 @@ public class IDBSubject onModel: m <Object>
     |
     Klass install.
     ModelKlass install.
-	IDBSubject onModel: ApplicationModel new modelClasses: { IDBObjectClass } databaseName: 'TestDB' databaseVersion: 1984 ] value
+	IDBSubject onModel: nil 
+    	storeClasses: { ApplicationModel }
+    	modelClasses: { IDBObjectClass }
+        databaseName: 'TestDB'
+        databaseVersion: 1984
+        useAliens: true ] value
 *)
 (*
 	IDBSubject is the main "driver" class for IndexedDB opeerations.
@@ -115,6 +121,7 @@ public class IDBSubject onModel: m <Object>
  	public models = List new addAll: mc.
     public databaseName = n.
     public databaseVersion = v.
+    public useAliens = b.
 	|
     models addAll: sc; add: Alien; yourself.
 ) (
@@ -205,15 +212,6 @@ onUpgradeNeeded: event <Alien[Event]> = (
     stores do: [ :klass | db createObjectStore: klass name ].
     'upgradeneeded triggered' out.
 )
-serialize: o <IDBObject>^<Alien[Object]> = (
-	|
-    serializer <Serializer> = Serializer withAdditionalSharedObjects: models.
-    result <Alien[Object]> = JSObject new.
-    |
-    result at: 'psoup' put: (blobFromBytes: (serializer serialize: o)).
-	result at: 'aliens' put: o serializeAliens.
-    ^result
-)
 deserialize: buffer <Alien[ArrayBuffer]>^<IDBObject> = (
 		|
         deserializer <Deserializer> = Deserializer withAdditionalSharedObjects: models.
@@ -230,33 +228,6 @@ onOpen: event <Alien[Event]> = (
     stores do: [ :k | getAll: k ].
 )
 onBlocked: e <Alien[Event]> = (
-)
-getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject]]> onError: errorHandler <[:Error]> = (
-		|
-        storeName <String> = class name.
-        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
-        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
-        req <Alien[IDBOpenRequest]> = store getAll.
-        |
-		req addEventListener: 'success' handler: [ :e <Alien[Event]> |
-        	|
-            objs <Alien[Array[Alien[Blob]]]> = (e at: 'target') at: 'result'.
-            n <Integer> = objs at: 'length'.
-            promises <Alien[Array[Alien[Promise]]]> = JSArray new: n.
-            results <List[IDBObject]> = List new.
-            |
-    		0 to: (n - 1) do: [ :i <Integer> | promises at: i put: ((objs at: i) at: 'psoup') arrayBuffer ]. 	  (* async *)
-			(JSPromise all: promises)
-            	then: [ :buffers <Alien[Array[Alien[ArrayBuffer]]]> |													(* resolve *)
-					0 to: (n - 1) do: [ :j <Integer> | results add: (deserialize: (buffers at: j)) ].
-                    1 to: n do: [ :i <Integer> | (results at: i) reconstituteAliens: ((objs at: (i - 1)) at: 'aliens') ].
-                  	onGetAll: results forClass: class.
-                  	nil ]
-				onError: [ :ex <Error> | ex signal: ('Failed to load data: ', ex messageText). nil ]. 				(* reject *)
-			nil.
-		].
-   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
-   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
 onGetAll: r <List[IDBObject]> forClass: aClass <Class> = (
 	'onGetAll:forClass: triggered' out.
@@ -329,6 +300,43 @@ delete: o <IDBObject> onComplete: completeBlock <Closure> onError: errorBlock <C
 )
 onDelete: o <IDBObject> forClass: c <Class[IDBObject]> = (
 	'onDelete triggered' out.
+)
+serialize: o <IDBObject>^<Alien[Object]> = (
+	|
+    serializer <Serializer> = Serializer withAdditionalSharedObjects: models.
+    result <Alien[Object]> = JSObject new.
+    |
+    result at: 'psoup' put: (blobFromBytes: (serializer serialize: o)).
+    useAliens ifTrue: [ result at: 'aliens' put: o serializeAliens ].
+    ^result
+)
+getAll: class <Class[IDBObject]> onComplete: completionHandler <[:List[IDBObject]]> onError: errorHandler <[:Error]> = (
+		|
+        storeName <String> = class name.
+        tx <Alien[IDBTransaction]> = db transaction: storeName for: 'readonly'.
+        store <Alien[IDBObjectStore]> = tx objectStore: storeName.
+        req <Alien[IDBOpenRequest]> = store getAll.
+        |
+		req addEventListener: 'success' handler: [ :e <Alien[Event]> |
+        	|
+            objs <Alien[Array[Alien[Blob]]]> = (e at: 'target') at: 'result'.
+            n <Integer> = objs at: 'length'.
+            promises <Alien[Array[Alien[Promise]]]> = JSArray new: n.
+            results <List[IDBObject]> = List new.
+            |
+    		0 to: (n - 1) do: [ :i <Integer> | promises at: i put: ((objs at: i) at: 'psoup') arrayBuffer ]. 	  (* async *)
+			(JSPromise all: promises)
+            	then: [ :buffers <Alien[Array[Alien[ArrayBuffer]]]> |													(* resolve *)
+					0 to: (n - 1) do: [ :j <Integer> | results add: (deserialize: (buffers at: j)) ].
+                    useAliens ifTrue: [
+                    	1 to: n do: [ :i <Integer> | (results at: i) reconstituteAliens: ((objs at: (i - 1)) at: 'aliens') ]].
+                  	onGetAll: results forClass: class.
+                  	nil ]
+				onError: [ :ex <Error> | ex signal: ('Failed to load data: ', ex messageText). nil ]. 				(* reject *)
+			nil.
+		].
+   		tx addEventListener: 'complete' handler: [ :e <Alien[Event]> | completionHandler value: e. nil ].
+   		tx addEventListener: 'error' handler: [ :e <Alien[Event]> | errorHandler value: e. nil ].
 )
 ) : (
 )
